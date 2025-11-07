@@ -1,14 +1,18 @@
 "use client";
 
+import { getData } from "@/utils/storage";
 import { Picker } from "@react-native-picker/picker";
+import axios from "axios";
 import { useState } from "react";
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import Toast from "react-native-toast-message";
 
 export default function SecurityScreen() {
   const [question1, setQuestion1] = useState("");
   const [answer1, setAnswer1] = useState("");
   const [question2, setQuestion2] = useState("");
   const [answer2, setAnswer2] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const questions = [
     "In what town was your first job?",
@@ -18,20 +22,11 @@ export default function SecurityScreen() {
     "What was your favorite place to visit?",
   ];
 
-  const renderQuestionPicker = (
-    label: string,
-    selectedValue: string,
-    setSelectedValue: (value: string) => void,
-    disabledValue: string
-  ) => (
+  const renderQuestionPicker = (label: string, selectedValue: string, setSelectedValue: (value: string) => void, disabledValue: string) => (
     <View style={styles.fieldContainer}>
       <Text style={styles.floatingLabel}>{label}</Text>
       <View style={styles.pickerWrapper}>
-        <Picker
-          selectedValue={selectedValue}
-          onValueChange={setSelectedValue}
-          style={styles.picker}
-        >
+        <Picker selectedValue={selectedValue} onValueChange={setSelectedValue} style={styles.picker}>
           <Picker.Item label="Select a question..." value="" />
           {questions.map((q, idx) => (
             <Picker.Item
@@ -47,12 +42,7 @@ export default function SecurityScreen() {
     </View>
   );
 
-  const renderInputField = (
-    label: string,
-    value: string,
-    setValue: (text: string) => void,
-    placeholder: string
-  ) => (
+  const renderInputField = (label: string, value: string, setValue: (text: string) => void, placeholder: string) => (
     <View style={styles.fieldContainer}>
       <Text style={styles.floatingLabel}>{label}</Text>
       <TextInput
@@ -65,9 +55,78 @@ export default function SecurityScreen() {
     </View>
   );
 
+  const handleSave = async () => {
+    if (!question1 || !question2 || !answer1 || !answer2) {
+      return Toast.show({
+        type: "error",
+        text1: "Validation Error",
+        text2: "Please select both questions and provide answers.",
+      });
+    }
+
+    setLoading(true);
+    try {
+      const storedUser = await getData("user");
+      if (!storedUser?.username || !storedUser?.token) throw new Error("User not authenticated");
+
+      const body = {
+        USERNAME: storedUser.username,
+        IPADDRESS: "1",
+        QUESTION1: question1,
+        ANSWER1: answer1,
+        QUESTION2: question2,
+        ANSWER2: answer2,
+        DEVICEID: "1"
+      };
+
+      const response = await axios.post(
+        "http://172.16.20.32:45457/api/OLMS/AccountRecovery/EstablishedQA",
+        body,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${storedUser.token}`
+          }
+        }
+      );
+
+      const result = response.data?.[0];
+      console.log("QA Response:", result);
+
+      if (result?.RESPONSE_CODE === "E_20") {
+        Toast.show({
+          type: "error",
+          text1: "SQ already Exists",
+          text2: "",
+        });
+      } else if (result?.RESPONSE_CODE === "E_35") {
+        Toast.show({
+          type: "success",
+          text1: "Security Questions Saved",
+          text2: "",
+        });
+      } else {
+        // fallback for unexpected responses
+        Toast.show({
+          type: "error",
+          text1: "Error",
+          text2: result?.RESPONSE_MESSAGE || "Unexpected response from server.",
+        });
+      }
+    } catch (error: any) {
+      console.error("Error saving QA:", error);
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: error?.response?.data?.message || error.message || "Failed to save questions.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      {/* Header Card */}
       <View style={styles.cardHeader}>
         <Text style={styles.cardTitle}>Secure Your Account</Text>
         <Text style={styles.cardSubtitle}>
@@ -75,7 +134,6 @@ export default function SecurityScreen() {
         </Text>
       </View>
 
-      {/* Form Card */}
       <View style={styles.formCard}>
         {renderQuestionPicker("Security Question 1", question1, setQuestion1, question2)}
         {renderInputField("Your Answer", answer1, setAnswer1, "Please provide your answer here")}
@@ -83,10 +141,18 @@ export default function SecurityScreen() {
         {renderInputField("Your Answer", answer2, setAnswer2, "Please provide your answer here")}
       </View>
 
-      {/* Save Button */}
-      <TouchableOpacity style={styles.saveButton}>
-        <Text style={styles.saveButtonText}>Save</Text>
+      <TouchableOpacity
+        style={[styles.saveButton, loading && { opacity: 0.6 }]}
+        disabled={loading}
+        onPress={handleSave}
+      >
+        {loading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.saveButtonText}>Save</Text>
+        )}
       </TouchableOpacity>
+
     </ScrollView>
   );
 }

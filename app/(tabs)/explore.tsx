@@ -2,20 +2,87 @@ import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Fonts } from '@/constants/theme';
+import { getData, saveData } from '@/utils/storage';
+import axios from 'axios';
 import { Image } from 'expo-image';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 export default function TabTwoScreen() {
-  const personalInfo = [
-    { label: 'Account Number', value: '2-207-21-010869' },
-    { label: 'Employee Number', value: '0092493' },
-    { label: 'First Name', value: 'John' },
-    { label: 'Middle Name', value: 'Rayquaza' },
-    { label: 'Last Name, Suffix', value: 'Munchkin' },
-    { label: 'Mobile Number', value: '0909-721-3646' },
-    { label: 'Email Address', value: 'jrmunchkin@gmail.com' },
-    { label: 'Online Registration Date', value: '8/23/2022 11:43:05 AM' },
-  ];
+  const [personalInfo, setPersonalInfo] = useState([
+    { label: 'Account Number', value: '' },
+    { label: 'Employee Number', value: '' },
+    { label: 'First Name', value: '' },
+    { label: 'Middle Name', value: '' },
+    { label: 'Last Name, Suffix', value: '' },
+    { label: 'Mobile Number', value: '' },
+    { label: 'Email Address', value: '' },
+    { label: 'Online Registration Date', value: '' },
+  ]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchDetails = async () => {
+      const storedUser = await getData('user');
+      console.log('Stored user:', storedUser);
+
+      if (!storedUser?.token || !storedUser?.username) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const response = await axios.post(
+          'http://172.16.20.32:45457/api/OLMS/User/Details',
+          {
+            USERNAME: storedUser.username, // Base64 encoded
+            DEVICEID: '1',
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${storedUser.token}`,
+            },
+          }
+        );
+
+        const data = response.data?.[0];
+        console.log('RAW User/Details response:', data);
+
+        if (data) {
+          const formattedInfo = [
+            { label: 'Account Number', value: data.ACCNO || '' },
+            { label: 'Employee Number', value: data.EMPNO || '' },
+            { label: 'First Name', value: data.FNAME || '' },
+            { label: 'Middle Name', value: data.MNAME || '' },
+            { label: 'Last Name, Suffix', value: data.LNAME || '' },
+            { label: 'Mobile Number', value: data.CONTACT_NO || '' },
+            { label: 'Email Address', value: data.EMAIL_ADDRESS || '' },
+            { label: 'Online Registration Date', value: data.DATE_OF_REG || '' },
+          ];
+
+          setPersonalInfo(formattedInfo);
+          await saveData('personalInfo', formattedInfo);
+          console.log('Formatted personal info:', formattedInfo);
+        }
+      } catch (error) {
+        console.error('Error fetching personal info:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDetails();
+  }, []);
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#ff5a5f" />
+        <Text style={{ marginTop: 10 }}>Loading personal details...</Text>
+      </View>
+    );
+  }
 
   return (
     <ParallaxScrollView

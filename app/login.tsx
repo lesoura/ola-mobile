@@ -1,12 +1,12 @@
 "use client";
-
+import { saveData } from "@/utils/storage";
 import { MaterialIcons } from "@expo/vector-icons";
 import axios from "axios";
 import { encode as btoa } from "base-64";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-  Alert,
+  ActivityIndicator,
   Dimensions,
   Image,
   KeyboardAvoidingView,
@@ -22,10 +22,10 @@ import Animated, {
   Easing,
   useAnimatedStyle,
   useSharedValue,
-  withRepeat,
-  withTiming,
+  withTiming
 } from "react-native-reanimated";
 import Svg, { Path } from "react-native-svg";
+import Toast from "react-native-toast-message";
 import MtmasIcon from "../assets/images/mtmas-icon.png";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -35,12 +35,19 @@ export default function Login() {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false); // <-- added
 
   const handleLogin = async () => {
     if (!username.trim() || !password.trim()) {
-      Alert.alert("Missing Information", "Please enter your username and password.");
+      Toast.show({
+        type: "error",
+        text1: "Missing Information",
+        text2: "Please enter your username and password.",
+      });
       return;
     }
+
+    setLoading(true); // <-- disable button
 
     try {
       const encodedUsername = btoa(username);
@@ -54,37 +61,57 @@ export default function Login() {
           IPADDRESS: "",
           DEVICEID: "",
         },
-        {
-          headers: { "Content-Type": "application/json" },
-        }
+        { headers: { "Content-Type": "application/json" } }
       );
 
       const result = response.data?.[0];
 
       if (result?.RESPONSE_CODE === "M_0") {
-        Alert.alert("Success", "Login successful!");
+        // save user data to AsyncStorage
+          await saveData("user", {
+          firstname: result.FIRSTNAME,
+          role: result.USER_ROLE,
+          token: result.TOKEN,
+          email: result.EMAIL_ADDRESS,
+          contact: result.CONTACT_NUMBER,
+          username: encodedUsername,
+          password: encodedPassword
+        });
+
+        Toast.show({
+          type: "success",
+          text1: "Login successful!",
+        });
+
         router.replace("/(tabs)");
-      } else {
-        Alert.alert("Login Failed", result?.RESPONSE_MESSAGE || "Invalid credentials");
+      }
+      else {
+        Toast.show({
+          type: "error",
+          text1: "Login Failed",
+          text2:
+          result?.RESPONSE_MESSAGE === "NotExisting"
+            ? "Account does not exist"
+            : result?.RESPONSE_MESSAGE || "Invalid credentials",
+        });
+        setLoading(false); // <-- re-enable on fail
       }
     } catch (error) {
       console.error(error);
-      Alert.alert("Error", "Unable to connect to the server.");
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Unable to connect to the server.",
+      });
+      setLoading(false); // <-- re-enable on error
     }
   };
 
-  // Animation setup (moved to useEffect so it doesn't run on render)
-  const waveOffset = useSharedValue(0);
+  // animation setup
   const fadeAnim = useSharedValue(0);
   const slideAnim = useSharedValue(30);
 
   useEffect(() => {
-    waveOffset.value = withRepeat(
-      withTiming(1, { duration: 3000, easing: Easing.inOut(Easing.ease) }),
-      -1,
-      true
-    );
-
     fadeAnim.value = withTiming(1, { duration: 800 });
     slideAnim.value = withTiming(0, { duration: 800, easing: Easing.out(Easing.cubic) });
   }, []);
@@ -101,7 +128,7 @@ export default function Login() {
     >
       <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
         <View style={styles.container}>
-          {/* Top Image */}
+          {/* Logo */}
           <Animated.View style={[styles.imageContainer, animatedStyle]}>
             <Image source={MtmasIcon} style={styles.image} resizeMode="contain" />
             <View style={styles.ribbon} />
@@ -148,14 +175,22 @@ export default function Login() {
                 />
               </View>
 
-              <TouchableOpacity>
+              <TouchableOpacity onPress={() => router.push("/forgotpassword")}>
                 <Text style={styles.forgot}>Forgot Password?</Text>
               </TouchableOpacity>
             </View>
 
             <View>
-              <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-                <Text style={styles.loginButtonText}>Login</Text>
+              <TouchableOpacity
+                style={[styles.loginButton, loading && { opacity: 0.7 }]}
+                onPress={handleLogin}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.loginButtonText}>Login</Text>
+                )}
               </TouchableOpacity>
 
               <View style={styles.signUpContainer}>
