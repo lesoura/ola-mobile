@@ -5,19 +5,31 @@ import axios from "axios";
 import { encode as btoa } from "base-64";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import Toast from "react-native-toast-message";
 
 export default function ForgotPassword() {
   const router = useRouter();
   const [username, setUsername] = useState("");
-  const [retrieveType, setRetrieveType] = useState(""); // "security" or "pin"
+  const [retrieveType, setRetrieveType] = useState("");
   const [loading, setLoading] = useState(false);
-  const [responseCode, setResponseCode] = useState(""); // S_20 or T_19
+  const [responseCode, setResponseCode] = useState("");
   const [securityQuestion, setSecurityQuestion] = useState("");
   const [securityAnswer, setSecurityAnswer] = useState("");
   const [email, setEmail] = useState("");
   const [pin, setPin] = useState("");
+  const [token, setToken] = useState("");
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [newPass, setNewPass] = useState("");
+  const [confirmPass, setConfirmPass] = useState("");
 
   const securityQuestions = [
     "In what town was your first job?",
@@ -36,114 +48,210 @@ export default function ForgotPassword() {
     setSecurityAnswer("");
     setEmail("");
     setPin("");
+    setShowPasswordForm(false);
+    setToken("");
+    setNewPass("");
+    setConfirmPass("");
   };
 
   const handleSubmit = async () => {
-  setLoading(true);
+    setLoading(true);
 
-  try {
-    const encodedUsername = btoa(username);
+    try {
+      const encodedUsername = btoa(username);
 
-    // STEP 1: Username check (only when responseCode is empty)
-    if (!responseCode) {
-      if (!username || !retrieveType) {
-        setLoading(false);
-        return Toast.show({
-          type: "error",
-          text1: "Missing Information",
-          text2: "Please fill all required fields.",
-        });
-      }
+      // STEP 1: Username check
+        if (!responseCode && !showPasswordForm) {
+          if (!username || !retrieveType) {
+            setLoading(false);
+            return Toast.show({
+              type: "error",
+              text1: "Missing Information",
+              text2: "Please fill all required fields.",
+            });
+          }
 
-      const arType = retrieveType === "security" ? "0" : "1";
+          const arType = retrieveType === "security" ? "0" : "1";
 
-      const response = await axios.post(
-        "http://172.16.20.32:45457/api/OLMS/AccountRecovery/Check/Username",
-        {
-          USERNAME: encodedUsername,
-          ARTYPE: arType,
-          DEVICEID: "1",
-        },
-        { headers: { "Content-Type": "application/json" } }
-      );
+          const response = await axios.post(
+            "http://172.16.20.32:45457/api/OLMS/AccountRecovery/Check/Username",
+            {
+              USERNAME: encodedUsername,
+              ARTYPE: arType,
+              DEVICEID: "1",
+            },
+            { headers: { "Content-Type": "application/json" } }
+          );
 
-      const result = response.data?.[0];
-      console.log("Username Check Response:", result);
+          const result = response.data?.[0];
+          console.log("Username Check Response:", result);
 
-      if (result?.RESPONSE_CODE === "S_20") {
-        Toast.show({ type: "success", text1: "Username exists" });
-        setResponseCode("S_20");
-      } else if (result?.RESPONSE_CODE === "T_19") {
-        Toast.show({ type: "info", text1: "OTP sent" });
-        setResponseCode("T_19");
-      } else if (result?.RESPONSE_CODE === "M_2") {
-        Toast.show({ type: "error", text1: "Username not found" });
-      } else {
-        Toast.show({
-          type: "info",
-          text1: "Response",
-          text2: result?.RESPONSE_CODE || "Unknown response",
-        });
-      }
-      return;
-    }
+          if (result?.RESPONSE_CODE === "S_20") {
+            Toast.show({ type: "success", text1: "Username exists" });
+            setResponseCode("S_20");
+          } else if (result?.RESPONSE_CODE === "T_19") {
+            // Call OTP API immediately
+            try {
+              const otpRes = await axios.post(
+                "http://172.16.20.32:45457/api/OLMS/AccountRecovery/Send/OTP",
+                {
+                  USERNAME: encodedUsername,
+                  IPADDRESS: "1",
+                  DEVICEID: "::1",
+                },
+                { headers: { "Content-Type": "application/json" } }
+              );
 
-    // STEP 2: Security question verification
-    if (responseCode === "S_20") {
-      if (!securityQuestion || !securityAnswer) {
-        setLoading(false);
-        return Toast.show({
-          type: "error",
-          text1: "Incomplete",
-          text2: "Please answer your security question.",
-        });
-      }
+              console.log("OTP Sent Response:", otpRes.data?.[0]);
+              Toast.show({ type: "success", text1: "OTP sent successfully!" });
+              setResponseCode("T_19"); // show OTP form
+            } catch (error: unknown) {
+          console.error("OTP Error:", error);
 
-      const secRes = await axios.post(
-        "http://172.16.20.32:45457/api/OLMS/AccountRecovery/Check/Security",
-        {
-          USERNAME: encodedUsername,
-          IPADDRESS: "1",
-          SECURITYQUESTION: securityQuestion,
-          SECURITYANSWER: securityAnswer,
-          DEVICEID: "1",
-        },
-        { headers: { "Content-Type": "application/json" } }
-      );
+          let errorMessage = "Unknown error";
+          if (error instanceof Error) {
+            errorMessage = error.message;
+          }
 
-      const secResult = secRes.data?.[0];
-      console.log("Security Check Response:", secResult);
+          Toast.show({
+            type: "error",
+            text1: "Failed to send OTP",
+            text2: errorMessage,
+          });
+        }
 
-      switch (secResult?.RESPONSE_CODE) {
-        case "T_2":
-          Toast.show({ type: "success", text1: "Security answer verified!" });
-          break;
-        case "S_23":
-          Toast.show({ type: "error", text1: "Question mismatch" });
-          break;
-        case "S_25":
-          Toast.show({ type: "error", text1: "Wrong answer" });
-          break;
-        default:
+        } else if (result?.RESPONSE_CODE === "M_2") {
+          Toast.show({ type: "error", text1: "Username not found" });
+        } else {
           Toast.show({
             type: "info",
             text1: "Response",
-            text2: secResult?.RESPONSE_CODE || "Unknown response",
+            text2: result?.RESPONSE_CODE || "Unknown response",
           });
+        }
+        return;
       }
-    }
-  } catch (error: any) {
-    console.error("Error:", error);
-    Toast.show({
-      type: "error",
-      text1: "Error",
-      text2: error?.response?.data?.message || error.message || "Something went wrong.",
-    });
-  } finally {
-    setLoading(false);
-  }
-};
 
+      // STEP 2: Security question verification
+      if (responseCode === "S_20" && !showPasswordForm) {
+        if (!securityQuestion || !securityAnswer) {
+          setLoading(false);
+          return Toast.show({
+            type: "error",
+            text1: "Incomplete",
+            text2: "Please answer your security question.",
+          });
+        }
+
+        const secRes = await axios.post(
+          "http://172.16.20.32:45457/api/OLMS/AccountRecovery/Check/Security",
+          {
+            USERNAME: encodedUsername,
+            IPADDRESS: "1",
+            SECURITYQUESTION: securityQuestion,
+            SECURITYANSWER: securityAnswer,
+            DEVICEID: "1",
+          },
+          { headers: { "Content-Type": "application/json" } }
+        );
+
+        const secResult = secRes.data?.[0];
+        console.log("Security Check Response:", secResult);
+
+        switch (secResult?.RESPONSE_CODE) {
+          case "T_2":
+            Toast.show({ type: "success", text1: "Security answer verified!" });
+            setToken(secResult?.TOKEN || "");
+            setShowPasswordForm(true);
+            break;
+          case "S_23":
+            Toast.show({ type: "error", text1: "Question mismatch" });
+            break;
+          case "S_25":
+            Toast.show({ type: "error", text1: "Wrong answer" });
+            break;
+          default:
+            Toast.show({
+              type: "info",
+              text1: "Response",
+              text2: secResult?.RESPONSE_CODE || "Unknown response",
+            });
+        }
+        return;
+      }
+
+      // STEP 3: Change password
+      if (showPasswordForm && token) {
+        if (!newPass || !confirmPass) {
+          setLoading(false);
+          return Toast.show({
+            type: "error",
+            text1: "Missing Fields",
+            text2: "Please fill in both password fields.",
+          });
+        }
+
+        if (newPass !== confirmPass) {
+          setLoading(false);
+          return Toast.show({
+            type: "error",
+            text1: "Password Mismatch",
+            text2: "Passwords do not match.",
+          });
+        }
+
+        const passRes = await axios.post(
+          "http://172.16.20.32:45457/api/OLMS/AccountRecovery/ChangePassword",
+          {
+            LOCK: "1",
+            USERNAME: encodedUsername,
+            IPADDRESS: "1",
+            NEWPASS: newPass,
+            CONFIRMPASS: confirmPass,
+          },
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const passResult = passRes.data?.[0];
+        console.log("Password Change Response:", passResult);
+
+        if (passResult?.RESPONSE_CODE === "A_32") {
+          Toast.show({
+            type: "success",
+            text1: "Password changed successfully!",
+          });
+          resetForm();
+          setResponseCode("");
+          setTimeout(() => {
+            router.replace("/login");
+          }, 1500);
+        } else {
+          Toast.show({
+            type: "error",
+            text1: "Password change failed",
+            text2: passResult?.RESPONSE_CODE || "Unknown error",
+          });
+        }
+      }
+    } catch (error: any) {
+      console.error("Error:", error);
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2:
+          error?.response?.data?.message ||
+          error.message ||
+          "Something went wrong.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const renderSecurityForm = () => (
     <View style={styles.formCard}>
@@ -175,6 +283,86 @@ export default function ForgotPassword() {
     </View>
   );
 
+  const renderPasswordForm = () => (
+    <View style={styles.formCard}>
+      <View style={styles.fieldContainer}>
+        <Text style={styles.floatingLabel}>New Password</Text>
+        <TextInput
+          style={styles.input}
+          secureTextEntry
+          value={newPass}
+          onChangeText={setNewPass}
+          placeholder="Enter new password"
+          placeholderTextColor="rgba(0,0,0,0.4)"
+        />
+      </View>
+      <View style={styles.fieldContainer}>
+        <Text style={styles.floatingLabel}>Confirm Password</Text>
+        <TextInput
+          style={styles.input}
+          secureTextEntry
+          value={confirmPass}
+          onChangeText={setConfirmPass}
+          placeholder="Confirm new password"
+          placeholderTextColor="rgba(0,0,0,0.4)"
+        />
+      </View>
+    </View>
+  );
+
+  // OTP verification function
+  const handleVerify = async () => {
+    if (!email || !pin) {
+      return Toast.show({
+        type: "error",
+        text1: "Missing Fields",
+        text2: "Please provide email and pin.",
+      });
+    }
+
+    setLoading(true);
+
+    try {
+      const encodedUsername = btoa(username || "");
+
+      const response = await axios.post(
+        "http://172.16.20.32:45457/api/OLMS/AccountRecovery/Check/OTP",
+        {
+          Username: encodedUsername,
+          EmailAddress: email, // match API field name
+          IpAddress: "1",
+          OTP: pin,
+        },
+        { headers: { "Content-Type": "application/json" } }
+      );
+
+      const result = response.data?.[0];
+      console.log("OTP Verify Response:", result);
+
+      if (result?.RESPONSE_CODE === "S_0") {
+        Toast.show({ type: "success", text1: "OTP verified!" });
+        setToken(result.TOKEN || "");
+        setShowPasswordForm(true); // show password form
+      } else {
+        Toast.show({
+          type: "error",
+          text1: "OTP Verification Failed",
+          text2: result?.RESPONSE_CODE || "Unknown response",
+        });
+      }
+    } catch (error: any) {
+      console.error("OTP Verify Error:", error);
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: error?.response?.data?.message || error?.message || "Something went wrong.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // OTP form component
   const renderOtpForm = () => (
     <View style={styles.formCard}>
       <View style={styles.fieldContainer}>
@@ -185,9 +373,9 @@ export default function ForgotPassword() {
           onChangeText={setEmail}
           placeholder="Enter your email"
           placeholderTextColor="rgba(0,0,0,0.4)"
-          keyboardType="email-address"
         />
       </View>
+
       <View style={styles.fieldContainer}>
         <Text style={styles.floatingLabel}>Pin Code</Text>
         <TextInput
@@ -199,15 +387,16 @@ export default function ForgotPassword() {
           keyboardType="numeric"
         />
       </View>
+
       <TouchableOpacity
         style={[styles.sendCodeButton, loading && { opacity: 0.6 }]}
         disabled={loading}
-        onPress={() => Toast.show({ type: "info", text1: "Code sent!" })}
+        onPress={handleVerify} // call external function
       >
         {loading ? (
           <ActivityIndicator color="#ff5a5f" />
         ) : (
-          <Text style={[styles.sendCodeButtonText]}>Send Code</Text>
+          <Text style={styles.sendCodeButtonText}>Verify</Text>
         )}
       </TouchableOpacity>
     </View>
@@ -256,15 +445,22 @@ export default function ForgotPassword() {
         )}
       </View>
 
-      {responseCode === "S_20" && renderSecurityForm()}
-      {responseCode === "T_19" && renderOtpForm()}
+      {responseCode === "S_20" && !showPasswordForm && renderSecurityForm()}
+      {responseCode === "T_19" && !showPasswordForm && renderOtpForm()}
+      {showPasswordForm && renderPasswordForm()}
 
       <TouchableOpacity
         style={[styles.submitButton, loading && { opacity: 0.6 }]}
         disabled={loading}
         onPress={handleSubmit}
       >
-        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitButtonText}>Submit</Text>}
+        {loading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.submitButtonText}>
+            {showPasswordForm ? "Change Password" : "Submit"}
+          </Text>
+        )}
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
