@@ -166,7 +166,7 @@ export default function HomeScreen() {
       {/* Apply Button */}
       <TouchableOpacity
         style={styles.applyButton}
-        onPress={() => router.push("/explore")}
+        onPress={() => router.push("/applyforloan")}
       >
         <Text style={styles.applyButtonText}>Apply for Loan</Text>
       </TouchableOpacity>
