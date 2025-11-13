@@ -74,8 +74,8 @@ export default function ForgotPassword() {
           const arType = retrieveType === "security" ? "0" : "1";
 
           const response = await axios.post(
-            "http://172.16.20.32:45457/api/OLMS/AccountRecovery/Check/Username",
-            {
+              `${API_URL}api/OLMS/AccountRecovery/Check/Username`,            
+              {
               USERNAME: encodedUsername,
               ARTYPE: arType,
               DEVICEID: "1",
@@ -93,7 +93,7 @@ export default function ForgotPassword() {
             // Call OTP API immediately
             try {
               const otpRes = await axios.post(
-                "http://172.16.20.32:45457/api/OLMS/AccountRecovery/Send/OTP",
+                `${API_URL}api/OLMS/AccountRecovery/Send/OTP`,
                 {
                   USERNAME: encodedUsername,
                   IPADDRESS: "1",
@@ -144,7 +144,7 @@ export default function ForgotPassword() {
         }
 
         const secRes = await axios.post(
-          "http://172.16.20.32:45457/api/OLMS/AccountRecovery/Check/Security",
+          `${API_URL}api/OLMS/AccountRecovery/Check/Security`,
           {
             USERNAME: encodedUsername,
             IPADDRESS: "1",
@@ -201,7 +201,7 @@ export default function ForgotPassword() {
         }
 
         const passRes = await axios.post(
-          "http://172.16.20.32:45457/api/OLMS/AccountRecovery/ChangePassword",
+          `${API_URL}api/OLMS/AccountRecovery/ChangePassword`,
           {
             LOCK: "1",
             USERNAME: encodedUsername,
@@ -326,7 +326,7 @@ export default function ForgotPassword() {
       const encodedUsername = btoa(username || "");
 
       const response = await axios.post(
-        "http://172.16.20.32:45457/api/OLMS/AccountRecovery/Check/OTP",
+        `${API_URL}api/OLMS/AccountRecovery/Check/OTP`,
         {
           Username: encodedUsername,
           EmailAddress: email, // match API field name

@@ -8,6 +8,11 @@ import CustomToastConfig from './customtoast';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Provider as PaperProvider } from 'react-native-paper';
 
+// ------------------ Global API URL ------------------
+   // global.API_URL = "https://devolamobile-api.manilateachersonline.com/"; // deployed
+ global.API_URL = "http://172.16.20.32:45457/"; // local
+// ----------------------------------------------------
+
 export const unstable_settings = {
   initialRouteName: "login",
 };

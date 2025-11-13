@@ -29,7 +29,7 @@ export default function HomeScreen() {
 
       try {
         const response = await axios.post(
-          "http://172.16.20.32:45457/api/OLMS/Loan/View",
+          `${API_URL}api/OLMS/Loan/View`,
           {
             USERNAME: storedUser.username, // Base64 encoded
             DEVICEID: "1",
@@ -113,34 +113,33 @@ export default function HomeScreen() {
       </View>
 
       {/* Table */}
-<View style={styles.tableCard}>
-  <Table>
-    {/* Always show headers */}
-    <Row data={tableHead} style={styles.tableHead} textStyle={styles.tableHeadText} />
-    
-    {loading ? (
-      <View style={{ padding: 30, alignItems: "center" }}>
-        <ActivityIndicator size="large" color="#ff5a5f" />
-        <Text style={{ marginTop: 10 }}>Loading loans...</Text>
+      <View style={styles.tableCard}>
+        <Table>
+          {/* Always show headers */}
+          <Row data={tableHead} style={styles.tableHead} textStyle={styles.tableHeadText} />
+          
+          {loading ? (
+            <View style={{ padding: 30, alignItems: "center" }}>
+              <ActivityIndicator size="large" color="#ff5a5f" />
+              <Text style={{ marginTop: 10 }}>Loading loans...</Text>
+            </View>
+          ) : (
+            currentData.map((rowData, index) => (
+              <Row
+                key={index}
+                data={rowData}
+                style={{
+                  height: 40,
+                  backgroundColor: index % 2 === 0 ? "#f5f5f5" : "#e0e0e0",
+                  borderBottomWidth: 1,
+                  borderBottomColor: "rgba(0,0,0,0.1)",
+                }}
+                textStyle={styles.tableText}
+              />
+            ))
+          )}
+        </Table>
       </View>
-    ) : (
-      currentData.map((rowData, index) => (
-        <Row
-          key={index}
-          data={rowData}
-          style={{
-            height: 40,
-            backgroundColor: index % 2 === 0 ? "#f5f5f5" : "#e0e0e0",
-            borderBottomWidth: 1,
-            borderBottomColor: "rgba(0,0,0,0.1)",
-          }}
-          textStyle={styles.tableText}
-        />
-      ))
-    )}
-  </Table>
-</View>
-
 
       {/* Pagination */}
       <View style={styles.paginationContainer}>

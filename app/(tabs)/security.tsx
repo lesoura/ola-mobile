@@ -80,7 +80,7 @@ export default function SecurityScreen() {
       };
 
       const response = await axios.post(
-        "http://172.16.20.32:45457/api/OLMS/AccountRecovery/EstablishedQA",
+        `${API_URL}api/OLMS/AccountRecovery/EstablishedQA`,
         body,
         {
           headers: {

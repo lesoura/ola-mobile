@@ -1,8 +1,9 @@
 "use client";
-import { getData } from "@/utils/storage";
+import { getData, saveData } from "@/utils/storage";
 import { Picker } from "@react-native-picker/picker";
 import axios from "axios";
 import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system/legacy";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -13,6 +14,7 @@ import {
   View,
 } from "react-native";
 import Toast from "react-native-toast-message";
+
 
 export default function ApplyForLoan() {
   const [amount, setAmount] = useState("");
@@ -43,12 +45,12 @@ export default function ApplyForLoan() {
       try {
         const [amtRes, termRes] = await Promise.all([
           axios.post(
-            "http://172.16.20.32:45457/api/OLMS/Reference/Loan/Amount",
+            `${API_URL}api/OLMS/Reference/Loan/Amount`,
             body,
             { headers: { Authorization: `Bearer ${storedUser.token}` } }
           ),
           axios.post(
-            "http://172.16.20.32:45457/api/OLMS/Reference/Loan/Term",
+            `${API_URL}api/OLMS/Reference/Loan/Term`,
             body,
             { headers: { Authorization: `Bearer ${storedUser.token}` } }
           ),
@@ -76,7 +78,7 @@ export default function ApplyForLoan() {
     try {
       const body = { PRINCIPAL: amount, TERMS: terms, USERNAME: user.username, DEVICEID: "::1" };
       const res = await axios.post(
-        "http://172.16.20.32:45457/api/OLMS/Loan/Calculator",
+        `${API_URL}api/OLMS/Loan/Calculator`,
         body,
         { headers: { Authorization: `Bearer ${user.token}` } }
       );
@@ -112,21 +114,58 @@ export default function ApplyForLoan() {
   };
 
   const handleUploadPayslip = async () => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ["image/jpeg", "image/jpg"],
-        copyToCacheDirectory: true,
-      });
+  try {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: ["image/jpeg", "image/jpg"],
+      copyToCacheDirectory: true,
+    });
 
-      if (result.canceled) return;
+    if (result.canceled) return;
 
-      const file = result.assets[0];
-      setPayslip(file);
-    } catch (error) {
-      console.error(error);
-      Toast.show({ type: "error", text1: "Failed to pick file" });
+    const file = result.assets[0];
+    setPayslip(file);
+
+    if (!user) {
+      Toast.show({ type: "error", text1: "User not found" });
+      return;
     }
-  };
+
+    // Retrieve stored FTP reference
+    const ftpRef = await getData("ftpRef");
+    if (!ftpRef) {
+      Toast.show({ type: "error", text1: "FTP reference not found" });
+      return;
+    }
+
+    // Ensure it's saved locally
+    await saveData("ftpRef", ftpRef);
+
+    // Read the file as base64
+    const fileBase64 = await FileSystem.readAsStringAsync(file.uri, { encoding: "base64" });
+
+    const body = {
+      USERNAME: user.username,
+      FILE_NAME_PAYSLIP: file.name,
+      FILE_PAYSLIP_BYTE: fileBase64,
+      FTP_PATH: `${ftpRef.PATH.trimEnd('/')}${file.name}`, // append file name here
+      FTP_USER: ftpRef.USER,
+      FTP_PWRD: ftpRef.PWRD,
+      IP_ADDRESS: "::1",
+      DEVICEID: "::1",
+    };
+
+    await axios.post(
+      `${API_URL}api/OLMS/Loan/SavingPayslipFTP`,
+      body,
+      { headers: { Authorization: `Bearer ${user.token}` } }
+    );
+
+    Toast.show({ type: "success", text1: "Payslip uploaded successfully" });
+  } catch (error) {
+    console.error(error);
+    Toast.show({ type: "error", text1: "Failed to upload payslip" });
+  }
+};
 
   return (
     <ScrollView contentContainerStyle={styles.container}>

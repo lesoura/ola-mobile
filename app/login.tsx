@@ -47,14 +47,14 @@ export default function Login() {
       return;
     }
 
-    setLoading(true); // <-- disable button
+    setLoading(true); // disable button
 
     try {
       const encodedUsername = btoa(username);
       const encodedPassword = btoa(password);
 
       const response = await axios.post(
-        "http://172.16.20.32:45457/api/OLMS/User/Login",
+        `${API_URL}api/OLMS/User/Login`,
         {
           USERNAME: encodedUsername,
           PASSWORD: encodedPassword,
@@ -67,8 +67,8 @@ export default function Login() {
       const result = response.data?.[0];
 
       if (result?.RESPONSE_CODE === "M_0") {
-        // save user data to AsyncStorage
-          await saveData("user", {
+        // save user data
+        await saveData("user", {
           firstname: result.FIRSTNAME,
           role: result.USER_ROLE,
           token: result.TOKEN,
@@ -78,23 +78,46 @@ export default function Login() {
           password: encodedPassword
         });
 
+        // call FTP reference endpoint
+        try {
+          const ftpResponse = await axios.post(
+            `${API_URL}api/OLMS/Reference/FTP`,
+            {
+              USERNAME: encodedUsername,
+              REFID: "",
+              DEVICEID: "::1"
+            },
+            {
+              headers: {
+                Authorization: `Bearer ${result.TOKEN}`,
+                "Content-Type": "application/json"
+              }
+            }
+          );
+
+          console.log("FTP Reference Response:", ftpResponse.data);
+          // save FTP reference locally
+          await saveData("ftpRef", ftpResponse.data[0]);
+        } catch (ftpError) {
+          console.error("FTP Reference call failed:", ftpError);
+        }
+
         Toast.show({
           type: "success",
           text1: "Login successful!",
         });
 
         router.replace("/(tabs)");
-      }
-      else {
+      } else {
         Toast.show({
           type: "error",
           text1: "Login Failed",
           text2:
-          result?.RESPONSE_MESSAGE === "NotExisting"
-            ? "Account does not exist"
-            : result?.RESPONSE_MESSAGE || "Invalid credentials",
+            result?.RESPONSE_MESSAGE === "NotExisting"
+              ? "Account does not exist"
+              : result?.RESPONSE_MESSAGE || "Invalid credentials",
         });
-        setLoading(false); // <-- re-enable on fail
+        setLoading(false); // re-enable on fail
       }
     } catch (error) {
       console.error(error);
@@ -103,7 +126,7 @@ export default function Login() {
         text1: "Error",
         text2: "Unable to connect to the server.",
       });
-      setLoading(false); // <-- re-enable on error
+      setLoading(false); // re-enable on error
     }
   };
 

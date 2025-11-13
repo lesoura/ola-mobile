@@ -33,7 +33,7 @@ export default function TabTwoScreen() {
 
       try {
         const response = await axios.post(
-          'http://172.16.20.32:45457/api/OLMS/User/Details',
+          `${API_URL}api/OLMS/User/Details`,
           {
             USERNAME: storedUser.username, // Base64 encoded
             DEVICEID: '1',
