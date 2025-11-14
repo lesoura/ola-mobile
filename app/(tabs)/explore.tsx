@@ -5,10 +5,13 @@ import { Fonts } from '@/constants/theme';
 import { getData, saveData } from '@/utils/storage';
 import axios from 'axios';
 import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function TabTwoScreen() {
+  const router = useRouter();
+  const [logoutLoading, setLogoutLoading] = useState(false);
   const [personalInfo, setPersonalInfo] = useState([
     { label: 'Account Number', value: '' },
     { label: 'Employee Number', value: '' },
@@ -20,6 +23,36 @@ export default function TabTwoScreen() {
     { label: 'Online Registration Date', value: '' },
   ]);
   const [loading, setLoading] = useState(true);
+
+  const handleLogout = async () => {
+    setLogoutLoading(true);
+    try {
+      const storedUser = await getData('user');
+      if (!storedUser?.username || !storedUser?.token) return;
+
+      await axios.post(
+        `${API_URL}api/OLMS/User/SignOut`,
+        {
+          USERNAME: storedUser.username,
+          IPADDRESS: '', // optional
+          DEVICEID: '::1',
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${storedUser.token}`,
+          },
+        }
+      );
+
+      await saveData('user', null);
+      router.replace('/login');
+    } catch (error) {
+      console.error('Logout failed:', error);
+    } finally {
+      setLogoutLoading(false);
+    }
+  };
 
   useEffect(() => {
     const fetchDetails = async () => {
@@ -120,6 +153,35 @@ export default function TabTwoScreen() {
           </View>
         ))}
       </ScrollView>
+      <TouchableOpacity
+        style={{
+          backgroundColor: '#555',
+          padding: 15,
+          borderRadius: 25,
+          alignItems: 'center',
+          marginTop: 0,
+          marginBottom: 20,
+          marginHorizontal: 15,
+          width: 'auto',
+        }}
+        onPress={handleLogout}
+      >
+      <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Logout</Text>
+    </TouchableOpacity>
+
+    {logoutLoading && (
+      <View style={{
+        ...StyleSheet.absoluteFillObject,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.3)',
+        zIndex: 100,
+      }}>
+        <ActivityIndicator size="large" color="#ff5a5f" />
+        <Text style={{ marginTop: 10, color: '#fff' }}>Signing out...</Text>
+      </View>
+    )}
+
     </ParallaxScrollView>
   );
 }

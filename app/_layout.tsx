@@ -8,9 +8,14 @@ import CustomToastConfig from './customtoast';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Provider as PaperProvider } from 'react-native-paper';
 
-// ------------------ Global API URL ------------------
-   // global.API_URL = "https://devolamobile-api.manilateachersonline.com/"; // deployed
- global.API_URL = "http://172.16.20.32:45457/"; // local
+   // ------------------ Global API URL ------------------
+   global.API_URL = "https://devolamobile-api.manilateachersonline.com/"; // deployed
+ // global.API_URL = "http://172.16.20.32:45457/"; // local
+// ----------------------------------------------------
+
+   // ------------------ Authors ------------------
+  // API - Mike Moraga (Lord, Master, Teacher, Mentor, Wizard, Senior, MILF Magnet, Aura Farmer, & Clit Destroyer Via Infinite Loop)
+ // UI - Marvirt (Pogi)
 // ----------------------------------------------------
 
 export const unstable_settings = {

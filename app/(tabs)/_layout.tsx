@@ -52,6 +52,13 @@ export default function TabLayout() {
           }}
         />
         <Tabs.Screen
+          name="loandetails/[refid]"
+          options={{
+            href: null,           // Hide route from the tab bar
+            headerShown: false,
+          }}
+        />
+        <Tabs.Screen
           name="explore"
           options={{
             title: "Profile",

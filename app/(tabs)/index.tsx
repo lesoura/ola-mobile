@@ -1,21 +1,22 @@
 import { getData } from "@/utils/storage";
 import axios from "axios";
 import { Image } from "expo-image";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Row, Table } from "react-native-table-component";
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { refresh } = useLocalSearchParams(); // now works
+
   const [currentPage, setCurrentPage] = useState(1);
   const [userName, setUserName] = useState("");
   const [tableData, setTableData] = useState<string[][]>([]);
   const [loading, setLoading] = useState(true);
   const rowsPerPage = 5;
 
-  useEffect(() => {
-    const fetchUserAndLoans = async () => {
+  const fetchUserAndLoans = async () => {
       const storedUser = await getData("user");
       console.log("Stored user:", storedUser);
 
@@ -65,8 +66,9 @@ export default function HomeScreen() {
       }
     };
 
-    fetchUserAndLoans();
-  }, []);
+    useEffect(() => {
+      fetchUserAndLoans();
+    }, [refresh]); // now it will refetch when refresh param changes
 
   const totalPages = Math.ceil(tableData.length / rowsPerPage);
   const handleNext = () => currentPage < totalPages && setCurrentPage(currentPage + 1);
@@ -124,19 +126,32 @@ export default function HomeScreen() {
               <Text style={{ marginTop: 10 }}>Loading loans...</Text>
             </View>
           ) : (
-            currentData.map((rowData, index) => (
-              <Row
-                key={index}
-                data={rowData}
-                style={{
-                  height: 40,
-                  backgroundColor: index % 2 === 0 ? "#f5f5f5" : "#e0e0e0",
-                  borderBottomWidth: 1,
-                  borderBottomColor: "rgba(0,0,0,0.1)",
-                }}
-                textStyle={styles.tableText}
-              />
-            ))
+            currentData.map((rowData, index) => {
+              const refid = rowData[0];
+              return (
+                <TouchableOpacity
+                  key={index}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/loandetails/[refid]",
+                      params: { refid },
+                    })
+                  }
+                  activeOpacity={0.7}
+                >
+                  <Row
+                    data={rowData}
+                    style={{
+                      height: 40,
+                      backgroundColor: index % 2 === 0 ? "#f5f5f5" : "#e0e0e0",
+                      borderBottomWidth: 1,
+                      borderBottomColor: "rgba(0,0,0,0.1)",
+                    }}
+                    textStyle={styles.tableText}
+                  />
+                </TouchableOpacity>
+              );
+            })
           )}
         </Table>
       </View>
