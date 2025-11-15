@@ -1,9 +1,10 @@
 "use client";
-import { getData, saveData } from "@/utils/storage";
+import { getData } from "@/utils/storage";
 import { Picker } from "@react-native-picker/picker";
 import axios from "axios";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
+import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -15,8 +16,8 @@ import {
 } from "react-native";
 import Toast from "react-native-toast-message";
 
-
 export default function ApplyForLoan() {
+  const router = useRouter();
   const [amount, setAmount] = useState("");
   const [terms, setTerms] = useState("");
   const [amountOptions, setAmountOptions] = useState<number[]>([]);
@@ -113,7 +114,121 @@ export default function ApplyForLoan() {
     Toast.show({ type: "info", text1: "Payslip Upload", text2: "Upload your payslip to proceed." });
   };
 
-  const handleUploadPayslip = async () => {
+  const handleSubmitLoan = async () => {
+    if (!user || !payslip || !monthlyAmort) {
+      Toast.show({ type: "error", text1: "Missing information" });
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      // Get FTP details
+      const ftpRef = await getData("ftpRef");
+      if (!ftpRef) {
+        Toast.show({ type: "error", text1: "FTP reference not found" });
+        return;
+      }
+
+      // STEP 1: Generate Loan ID
+      const idRes = await axios.post(
+        `${API_URL}api/OLMS/Reference/Loan/Id`,
+        {
+          USERNAME: user.username,
+          DEVICEID: "::1",
+        },
+        { headers: { Authorization: `Bearer ${user.token}` } }
+      );
+
+      const generatedId = idRes.data?.[0]?.ACT_ID;
+      if (!generatedId) {
+        Toast.show({ type: "error", text1: "Failed to generate loan ID" });
+        return;
+      }
+
+      // Build final filename (PAYSLIP_<ID><random>.jpg)
+      const randomSuffix = Math.floor(Math.random() * 9000000000) + 1000000000;
+      const finalFilename = `${ftpRef.NAME}${generatedId}${randomSuffix}.jpg`;
+      const finalLoanRefId = `${generatedId}${randomSuffix}`;
+
+      // STEP 2: Validate ID
+      const validRes = await axios.post(
+        `${API_URL}api/OLMS/Loan/Validation/Id`,
+        {
+          USERNAME: user.username,
+          ID: finalLoanRefId,
+          DEVICEID: "::1",
+        },
+        { headers: { Authorization: `Bearer ${user.token}` } }
+      );
+
+      if (validRes.data !== 0) {
+        Toast.show({ type: "error", text1: "Loan ID already exists, try again" });
+        return;
+      }
+
+      // Build full path
+      const finalPath = `${ftpRef.PATH}${finalFilename}`;
+
+      // STEP 3: Submit Application
+      const submitBody = {
+        USERNAME: user.username,
+        LOAN_REF_ID: finalLoanRefId,
+        TERMS: Number(terms),
+        PRINCIPAL: Number(amount),
+        M_AMORT: Number(monthlyAmort),
+        FILE_PATH: finalPath,
+        FILE_NAME: finalFilename,
+        FILE_REASON: ftpRef.RSON,
+        IP_ADDRESS: "::1",
+        DEVICEID: "::1",
+      };
+
+      await axios.post(
+        `${API_URL}api/OLMS/Loan/Application`,
+        submitBody,
+        { headers: { Authorization: `Bearer ${user.token}` } }
+      );
+
+      // inside handleSubmitLoan, after successful submission
+      Toast.show({ type: "success", text1: "Loan Application Submitted!" });
+
+      // reset page state
+      setStep(1);                          // go back to calculation step
+      setAmount(amountOptions[0]?.toString() || "");
+      setTerms(termOptions[0] || "");
+      setMonthlyAmort(null);
+      setComputed(false);
+      setPayslip(null);
+      setGeneratedLoanId(null);
+      setFinalFilename(null);
+      setLoading(false);
+      setUploadingPayslip(false);
+
+      // optionally navigate back or just stay on the same screen
+      router.push({
+        pathname: "/(tabs)",
+        params: { refresh: Date.now() },
+      });
+
+    } catch (err) {
+      console.error(err);
+      Toast.show({ type: "error", text1: "Submission failed" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+const [uploadingPayslip, setUploadingPayslip] = useState(false);
+const [generatedLoanId, setGeneratedLoanId] = useState<string | null>(null);
+const [finalFilename, setFinalFilename] = useState<string | null>(null);
+
+const handleUploadPayslip = async () => {
+  if (!user) {
+    Toast.show({ type: "error", text1: "User not found" });
+    return;
+  }
+
   try {
     const result = await DocumentPicker.getDocumentAsync({
       type: ["image/jpeg", "image/jpg"],
@@ -123,31 +238,50 @@ export default function ApplyForLoan() {
     if (result.canceled) return;
 
     const file = result.assets[0];
-    setPayslip(file);
 
-    if (!user) {
-      Toast.show({ type: "error", text1: "User not found" });
-      return;
+    setUploadingPayslip(true); // disable submit button
+
+    // STEP 1: Generate Loan ID if not generated yet
+    let generatedId = generatedLoanId;
+    if (!generatedId) {
+      const idRes = await axios.post(
+        `${API_URL}api/OLMS/Reference/Loan/Id`,
+        {
+          USERNAME: user.username,
+          DEVICEID: "::1",
+        },
+        { headers: { Authorization: `Bearer ${user.token}` } }
+      );
+      generatedId = idRes.data?.[0]?.ACT_ID;
+      if (!generatedId) {
+        Toast.show({ type: "error", text1: "Failed to generate loan ID" });
+        setUploadingPayslip(false);
+        return;
+      }
+      setGeneratedLoanId(generatedId);
     }
+
+    // Randomized suffix for uniqueness
+    const randomSuffix = Math.floor(Math.random() * 9000000000) + 1000000000;
+    const filename = `PAYSLIP_${generatedId}${randomSuffix}.jpg`;
+    setFinalFilename(filename);
 
     // Retrieve stored FTP reference
     const ftpRef = await getData("ftpRef");
     if (!ftpRef) {
       Toast.show({ type: "error", text1: "FTP reference not found" });
+      setUploadingPayslip(false);
       return;
     }
-
-    // Ensure it's saved locally
-    await saveData("ftpRef", ftpRef);
 
     // Read the file as base64
     const fileBase64 = await FileSystem.readAsStringAsync(file.uri, { encoding: "base64" });
 
     const body = {
       USERNAME: user.username,
-      FILE_NAME_PAYSLIP: file.name,
+      FILE_NAME_PAYSLIP: filename,
       FILE_PAYSLIP_BYTE: fileBase64,
-      FTP_PATH: `${ftpRef.PATH.trimEnd('/')}${file.name}`, // append file name here
+      FTP_PATH: `${ftpRef.PATH.trimEnd('/')}/${filename}`,
       FTP_USER: ftpRef.USER,
       FTP_PWRD: ftpRef.PWRD,
       IP_ADDRESS: "::1",
@@ -160,12 +294,16 @@ export default function ApplyForLoan() {
       { headers: { Authorization: `Bearer ${user.token}` } }
     );
 
+    setPayslip(file); // save file for later submission
     Toast.show({ type: "success", text1: "Payslip uploaded successfully" });
   } catch (error) {
     console.error(error);
     Toast.show({ type: "error", text1: "Failed to upload payslip" });
+  } finally {
+    setUploadingPayslip(false); // re-enable submit
   }
 };
+
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -215,25 +353,29 @@ export default function ApplyForLoan() {
             {step === 2 && (
               <>
                 <Text style={styles.label}>Payslip</Text>
-                <TouchableOpacity style={styles.uploadButton} onPress={handleUploadPayslip}>
-                  <Text style={styles.buttonText}>{payslip ? payslip.name : "Upload Payslip"}</Text>
+                <TouchableOpacity
+                  style={[styles.uploadButton, uploadingPayslip && { opacity: 0.7 }]}
+                  onPress={handleUploadPayslip}
+                  disabled={uploadingPayslip} // disable while uploading
+                >
+                  <Text style={styles.buttonText}>
+                    {uploadingPayslip ? "Uploading..." : payslip ? payslip.name : "Upload Payslip"}
+                  </Text>
                 </TouchableOpacity>
               </>
             )}
 
             <View style={styles.buttonRow}>
               <TouchableOpacity
-                style={[styles.computeButton, loading && { opacity: 0.7 }]}
-                onPress={
-                  step === 1
-                    ? (computed ? handleApplyLoan : handleCompute)
-                    : step === 2
-                    ? () => Toast.show({ type: "info", text1: "Submit clicked" })
-                    : undefined
-                }
-                disabled={loading}
+                style={[styles.computeButton, (loading || uploadingPayslip) && { opacity: 0.7 }]}
+                onPress={step === 1
+                  ? (computed ? handleApplyLoan : handleCompute)
+                  : step === 2
+                  ? handleSubmitLoan
+                  : undefined}
+                disabled={loading || uploadingPayslip}
               >
-                {loading ? (
+                {loading || uploadingPayslip ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
                   <Text style={styles.buttonText}>

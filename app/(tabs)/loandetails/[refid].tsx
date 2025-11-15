@@ -1,15 +1,16 @@
 "use client";
+import CustomModalConfig from "@/app/customconfirmation";
 import { getData } from "@/utils/storage";
 import axios from "axios";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from "react-native";
 import { Row, Table } from "react-native-table-component";
 import Toast from "react-native-toast-message";
@@ -19,6 +20,7 @@ export default function LoanDetailsPage() {
   const { refid } = useLocalSearchParams();
   const [loading, setLoading] = useState(true);
   const [loan, setLoan] = useState<any | null>(null);
+  const [showModal, setShowModal] = useState(false);
 
   const statusToStep = (status: string | undefined) => {
     if (!status) return 1;
@@ -78,15 +80,15 @@ export default function LoanDetailsPage() {
             setLoan(data[0]);
         }
         }}
- catch (err) {
-        console.error("Loan details fetch error:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    if (refid) fetchDetails();
-    else setLoading(false);
-  }, [refid]);
+      catch (err) {
+              console.error("Loan details fetch error:", err);
+            } finally {
+              setLoading(false);
+            }
+          };
+          if (refid) fetchDetails();
+          else setLoading(false);
+        }, [refid]);
 
   const tableHead = ["Field", "Value"];
   const tableData = loan
@@ -105,38 +107,40 @@ export default function LoanDetailsPage() {
 
     const cancelled = loan?.REMARKS === "Cancelled";
 
-    const handleCancel = async () => {
-        const storedUser = await getData("user");
-            if (!storedUser?.token || !storedUser?.username) {
-                Toast.show({ type: "error", text1: "User not found" });
-                return;
-            }
+    const handleCancel = () => {
+      setShowModal(true);
+    };
 
-            try {
-                const body = {
-                STAT: "CAN", // or whatever the API expects
-                USERNAME: storedUser.username,
-                IPADDRESS: "", // leave blank
-                REFID_LOAN: refid,
-                DEVICEID: "::1",
-                };
+  const proceedCancel = async () => {
+    const storedUser = await getData("user");
+    if (!storedUser?.token || !storedUser?.username) {
+      Toast.show({ type: "error", text1: "User not found" });
+      return;
+    }
 
-                await axios.post(`${API_URL}api/OLMS/Loan/Update`, body, {
-                headers: { Authorization: `Bearer ${storedUser.token}` },
-                });
+    try {
+      const body = {
+        STAT: "CAN",
+        USERNAME: storedUser.username,
+        IPADDRESS: "",
+        REFID_LOAN: refid,
+        DEVICEID: "::1",
+      };
 
-                Toast.show({ type: "success", text1: "Loan cancelled successfully" });
-                Toast.show({ type: "success", text1: "Loan cancelled successfully" });
-                router.push({
-                pathname: "/(tabs)",
-                params: { refresh: Date.now() },
-                });
+      await axios.post(`${API_URL}api/OLMS/Loan/Update`, body, {
+        headers: { Authorization: `Bearer ${storedUser.token}` },
+      });
 
-            } catch (err) {
-                console.error("Cancel loan error:", err);
-                Toast.show({ type: "error", text1: "Failed to cancel loan" });
-            }
-        };
+      Toast.show({ type: "success", text1: "Loan cancelled successfully" });
+      router.push({
+        pathname: "/(tabs)",
+        params: { refresh: Date.now() },
+      });
+    } catch (err) {
+      console.error("Cancel loan error:", err);
+      Toast.show({ type: "error", text1: "Failed to cancel loan" });
+    }
+  };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -149,10 +153,16 @@ export default function LoanDetailsPage() {
           <Text style={styles.topButtonText}>← Back</Text>
         </TouchableOpacity>
         <TouchableOpacity
-            style={[styles.topButton, { backgroundColor: "#999" }]}
-            onPress={handleCancel}
-            >
-            <Text style={styles.topButtonText}>Cancel</Text>
+          style={[
+            styles.topButton,
+            { backgroundColor: cancelled ? "#999" : "#999",
+              opacity: cancelled ? 0.4 : 1   // fade when disabled
+            }
+          ]}
+          onPress={handleCancel}
+          disabled={cancelled} // disable if cancelled
+        >
+          <Text style={styles.topButtonText}>Cancel</Text>
         </TouchableOpacity>
       </View>
 
@@ -234,6 +244,17 @@ export default function LoanDetailsPage() {
           <Text style={[styles.legend, { color: "#bbb" }]}>● Not Started</Text>
         </View>
       </View>
+
+      {/* Custom confirmation modal */}
+      {showModal && CustomModalConfig.default({
+        title: "Confirm Cancel",
+        message: "Are you sure you want to cancel this loan?",
+        onCancel: () => setShowModal(false),
+        onConfirm: async () => {
+          setShowModal(false);
+          await proceedCancel();
+        },
+      })}
     </ScrollView>
   );
 }

@@ -1,3 +1,4 @@
+import CustomModalConfig from '@/app/customconfirmation'; // path to your modal
 import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -11,6 +12,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOp
 
 export default function TabTwoScreen() {
   const router = useRouter();
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [personalInfo, setPersonalInfo] = useState([
     { label: 'Account Number', value: '' },
@@ -23,6 +25,11 @@ export default function TabTwoScreen() {
     { label: 'Online Registration Date', value: '' },
   ]);
   const [loading, setLoading] = useState(true);
+
+  const handleLogoutConfirmed = async () => {
+    setShowLogoutModal(false);
+    await handleLogout(); // call your existing logout function
+  };
 
   const handleLogout = async () => {
     setLogoutLoading(true);
@@ -118,6 +125,7 @@ export default function TabTwoScreen() {
   }
 
   return (
+    <View style={{ flex: 1 }}> {/* Full screen container */}
     <ParallaxScrollView
       headerBackgroundColor={{ light: '#f2f2f2', dark: '#353636' }}
       headerImage={
@@ -164,10 +172,11 @@ export default function TabTwoScreen() {
           marginHorizontal: 15,
           width: 'auto',
         }}
-        onPress={handleLogout}
+        onPress={() => setShowLogoutModal(true)}
       >
-      <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Logout</Text>
-    </TouchableOpacity>
+        <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Logout</Text>
+      </TouchableOpacity>
+    </ParallaxScrollView>
 
     {logoutLoading && (
       <View style={{
@@ -182,7 +191,22 @@ export default function TabTwoScreen() {
       </View>
     )}
 
-    </ParallaxScrollView>
+    {showLogoutModal && (
+      <View style={{
+        ...StyleSheet.absoluteFillObject,
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 1000, // make sure it's above everything
+      }}>
+        {CustomModalConfig.default({
+          title: "Confirm Logout",
+          message: "Are you sure you want to logout?",
+          onCancel: () => setShowLogoutModal(false),
+          onConfirm: handleLogoutConfirmed,
+        })}
+      </View>
+    )}
+     </View>
   );
 }
 
