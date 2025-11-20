@@ -1,6 +1,6 @@
 "use client";
 import { saveData } from "@/utils/storage";
-import { MaterialIcons } from "@expo/vector-icons";
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import axios from "axios";
 import { encode as btoa } from "base-64";
 import { useRouter } from "expo-router";
@@ -36,6 +36,7 @@ export default function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false); // <-- added
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async () => {
     if (!username.trim() || !password.trim()) {
@@ -191,11 +192,18 @@ export default function Login() {
                 <TextInput
                   placeholder="Enter password"
                   placeholderTextColor="#999"
-                  secureTextEntry
+                  secureTextEntry={!showPassword}  // <-- toggle here
                   style={styles.input}
                   value={password}
                   onChangeText={setPassword}
                 />
+                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                  <Ionicons
+                    name={showPassword ? "eye-off" : "eye"}
+                    size={20}
+                    color="#ff5a5f"
+                  />
+                </TouchableOpacity>
               </View>
 
               <TouchableOpacity onPress={() => router.push("/forgotpassword")}>

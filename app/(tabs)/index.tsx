@@ -6,6 +6,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Row, Table } from "react-native-table-component";
+import Toast from "react-native-toast-message";
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -62,29 +63,33 @@ export default function HomeScreen() {
       }
     } catch (error: any) {
       if (axios.isAxiosError(error) && error.response?.status === 401) {
-        console.warn("Token timeout. Please relogin.");
-        // Optional: redirect to login page
-        router.push("/login");
-      } else {
-        console.error("Error fetching loan data:", error);
-      }
-    } finally {
-      setLoading(false);
+        Toast.show({
+          type: "error",
+          text1: "Session expired",
+          text2: "Please log in again",
+        });
+      router.replace("/login"); // replace > push to avoid going back
+      return;
     }
-  };
+    else {
+            console.error("Error fetching loan data:", error);
+          }
+        } finally {
+          setLoading(false);
+        }
+      };
 
     useEffect(() => {
       fetchUserAndLoans();
     }, [refresh]); // now it will refetch when refresh param changes
 
-    // inside your HomeScreen component
-    // inside HomeScreen component
-useFocusEffect(
-  useCallback(() => {
-    console.log("BRUH");
-    fetchUserAndLoans(); // reloads the table
-  }, [])
-);
+    // View Detector & Table Refresher
+    useFocusEffect(
+      useCallback(() => {
+        console.log("Loan Table Refreshed");
+        fetchUserAndLoans(); // reloads the table
+      }, [])
+    );
 
   const totalPages = Math.ceil(tableData.length / rowsPerPage);
   const handleNext = () => currentPage < totalPages && setCurrentPage(currentPage + 1);

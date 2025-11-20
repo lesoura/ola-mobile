@@ -130,7 +130,7 @@ export default function TabTwoScreen() {
       headerBackgroundColor={{ light: '#f2f2f2', dark: '#353636' }}
       headerImage={
         <Image
-          source={require('@/components/ui/munchkin.jpeg')}
+          source={require('@/components/ui/IoTHeadOffice.png')}
           style={{ width: '100%', height: '100%', resizeMode: 'cover' }}
         />
       }>
