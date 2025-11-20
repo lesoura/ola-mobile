@@ -1,8 +1,9 @@
 import { getData } from "@/utils/storage";
+import { useFocusEffect } from "@react-navigation/native";
 import axios from "axios";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Row, Table } from "react-native-table-component";
 
@@ -17,58 +18,73 @@ export default function HomeScreen() {
   const rowsPerPage = 5;
 
   const fetchUserAndLoans = async () => {
-      const storedUser = await getData("user");
-      console.log("Stored user:", storedUser);
+    const storedUser = await getData("user");
+    console.log("Stored user:", storedUser);
 
-      if (storedUser?.firstname) setUserName(storedUser.firstname);
-      else setUserName("Unknown");
+    if (storedUser?.firstname) setUserName(storedUser.firstname);
+    else setUserName("Unknown");
 
-      if (!storedUser?.token || !storedUser?.username) {
-        setLoading(false);
-        return;
-      }
+    if (!storedUser?.token || !storedUser?.username) {
+      setLoading(false);
+      return;
+    }
 
-      try {
-        const response = await axios.post(
-          `${API_URL}api/OLMS/Loan/View`,
-          {
-            USERNAME: storedUser.username, // Base64 encoded
-            DEVICEID: "1",
+    try {
+      const response = await axios.post(
+        `${API_URL}api/OLMS/Loan/View`,
+        {
+          USERNAME: storedUser.username,
+          DEVICEID: "1",
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${storedUser.token}`,
           },
-          {
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${storedUser.token}`,
-            },
-          }
-        );
-
-        const data = response.data;
-        console.log("RAW Loan/View response:", data);
-
-        if (Array.isArray(data)) {
-          const formatted = data.map((item) => [
-            item.REFID_LOAN,
-            item.TRANDATE?.split("T")[0],
-            `₱${item.LOAN_AMOUNT.toLocaleString("en-PH")}`,
-            item.LOAN_STATUS,
-          ]);
-
-          setTableData(formatted);
-          console.log("Formatted loan table data:", formatted);
-        } else {
-          console.warn("Unexpected API response:", data);
         }
-      } catch (error) {
-        console.error("Error fetching loan data:", error);
-      } finally {
-        setLoading(false);
+      );
+
+      const data = response.data;
+      console.log("RAW Loan/View response:", data);
+
+      if (Array.isArray(data)) {
+        const formatted = data.map((item) => [
+          item.REFID_LOAN,
+          item.TRANDATE?.split("T")[0],
+          `₱${item.LOAN_AMOUNT.toLocaleString("en-PH")}`,
+          item.LOAN_STATUS,
+        ]);
+
+        setTableData(formatted);
+        console.log("Formatted loan table data:", formatted);
+      } else {
+        console.warn("Unexpected API response:", data);
       }
-    };
+    } catch (error: any) {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        console.warn("Token timeout. Please relogin.");
+        // Optional: redirect to login page
+        router.push("/login");
+      } else {
+        console.error("Error fetching loan data:", error);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
     useEffect(() => {
       fetchUserAndLoans();
     }, [refresh]); // now it will refetch when refresh param changes
+
+    // inside your HomeScreen component
+    // inside HomeScreen component
+useFocusEffect(
+  useCallback(() => {
+    console.log("BRUH");
+    fetchUserAndLoans(); // reloads the table
+  }, [])
+);
 
   const totalPages = Math.ceil(tableData.length / rowsPerPage);
   const handleNext = () => currentPage < totalPages && setCurrentPage(currentPage + 1);
