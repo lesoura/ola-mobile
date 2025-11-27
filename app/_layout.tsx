@@ -9,9 +9,10 @@ import 'react-native-reanimated';
 import Toast from 'react-native-toast-message';
 import CustomToastConfig from './customtoast';
 
-// ------------------ Global API URL ------------------
-global.API_URL = "https://devolamobile-api.manilateachersonline.com/"; // deployed
-// ----------------------------------------------------
+// ------------------ Global API URL ---------------------------------------------
+// global.API_URL = "https://devolamobile-api.manilateachersonline.com/"; // deployed
+global.API_URL = "http://172.16.20.32:45457/";
+// -------------------------------------------------------------------------------
 
 export const unstable_settings = {
   initialRouteName: "login",
@@ -33,6 +34,14 @@ export default function RootLayout() {
         Toast.show({
           type: "success" as const,
           text1: "Back online",
+        });
+      }
+
+      // Connected but no actual internet
+      if (state.isConnected && state.isInternetReachable === false) {
+        Toast.show({
+          type: "error",
+          text1: "Connected but no internet access",
         });
       }
 
@@ -73,6 +82,10 @@ export default function RootLayout() {
             />
             <Stack.Screen
               name="forgotpassword"
+              options={{ headerShown: false, animation: 'fade' }}
+            />
+            <Stack.Screen
+              name="registration"
               options={{ headerShown: false, animation: 'fade' }}
             />
             <Stack.Screen
