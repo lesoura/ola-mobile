@@ -11,7 +11,7 @@ import CustomToastConfig from './customtoast';
 
 // ------------------ Global API URL ---------------------------------------------
 // global.API_URL = "https://devolamobile-api.manilateachersonline.com/"; // deployed
-global.API_URL = "http://172.16.20.32:45457/";
+global.API_URL = "http://172.16.20.32:45459/";
 // -------------------------------------------------------------------------------
 
 export const unstable_settings = {
@@ -86,6 +86,10 @@ export default function RootLayout() {
             />
             <Stack.Screen
               name="registration"
+              options={{ headerShown: false, animation: 'fade' }}
+            />
+            <Stack.Screen
+              name="activation"
               options={{ headerShown: false, animation: 'fade' }}
             />
             <Stack.Screen
