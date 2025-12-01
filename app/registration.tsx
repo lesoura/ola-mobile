@@ -321,10 +321,18 @@ export default function Registration() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      {/* Back to previous page */}
-      <TouchableOpacity style={styles.topBackButton} onPress={() => router.back()}>
-        <Text style={styles.topBackText}>← Back</Text>
-      </TouchableOpacity>
+      {/* Top Header */}
+      <View style={{ flexDirection: "row", justifyContent: "space-between", width: "100%" }}>
+        <TouchableOpacity style={styles.topBackButton} onPress={() => router.back()}>
+          <Text style={styles.topBackText}>← Back</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => router.push("/activation")}>
+          <Text style={{ color: "#ff5a5f", fontWeight: "600", fontSize: 16, marginTop: 40 }}>
+            Activation
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Page Header */}
       <View style={styles.pageHeader}>

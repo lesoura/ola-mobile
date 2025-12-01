@@ -2,20 +2,22 @@
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
+import { encode as btoa } from "base-64";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
-    ActivityIndicator,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import Toast from "react-native-toast-message";
+import CustomModalConfig from "./customconfirmation";
 
 export default function Activation() {
   const router = useRouter();
@@ -25,94 +27,111 @@ export default function Activation() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
+  const encodedUsername = btoa(credential);
+  const encodedPassword = btoa(password);
+  const [showModal, setShowModal] = useState(true);
 
   const handleActivate = async () => {
-  if (!credential.trim() || !password.trim()) {
-    Toast.show({
-      type: "error",
-      text1: "Missing Information",
-      text2: "Please enter your contact/email and password.",
-    });
-    return;
-  }
-
-  setLoading(true);
-
-  try {
-    // Get token from AsyncStorage (saved in Registration Step 1)
-    const token = await AsyncStorage.getItem("registrationToken");
-    if (!token) {
-    Toast.show({ type: "error", text1: "Registration token missing" });
-    setLoading(false);
-    return;
+    if (!credential.trim() || !password.trim()) {
+      Toast.show({
+        type: "error",
+        text1: "Missing Information",
+        text2: "Please enter your contact/email and password.",
+      });
+      return;
     }
 
-    if (!otpSent) {
-      // 1. Send Email + SMS OTP
-      const emailRes = await axios.post(
-        `${API_URL}api/OLMS/User/Registration/EmailVerification`,
-        {
-          USERNAME: credential,
-          PASSWORD: password,
-          IPADDRESS: "1",
-          DEVICEID: "::1",
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+    setLoading(true);
 
-      const emailData = emailRes.data?.[0];
-      if (!emailData || !emailData.RCS) {
-        Toast.show({ type: "error", text1: "Failed to send OTP" });
-        setLoading(false);
-        return;
+    try {
+      // Get token from AsyncStorage (saved in Registration Step 1)
+      const token = await AsyncStorage.getItem("registrationToken");
+      if (!token) {
+      Toast.show({ type: "error", text1: "Registration token missing" });
+      setLoading(false);
+      return;
       }
 
-      Toast.show({ type: "success", text1: "OTP sent to your email/SMS" });
-      setOtpSent(true);
-    } else {
-      if (!otp.trim()) {
-        Toast.show({ type: "error", text1: "Please enter OTP" });
-        setLoading(false);
-        return;
-      }
+      if (!otpSent) {
+        const emailRes = await axios.post(
+          `${API_URL}api/OLMS/User/Registration/EmailVerification`,
+          {
+            USERNAME: encodedUsername,
+            PASSWORD: encodedPassword,
+            IPADDRESS: "1",
+            DEVICEID: "::1",
+          },
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
 
-      // 2. Verify OTP with same Bearer token
-      const smsRes = await axios.post(
-        `${API_URL}api/OLMS/User/Registration/SMSVerification`,
-        {
-          USERNAME: credential,
-          PASSWORD: password,
-          IPADDRESS: "1",
-          DEVICEID: "::1",
-          OTP: otp,
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` },
+        const emailData = emailRes.data?.[0];
+        if (!emailData || !emailData.RCS) {
+          Toast.show({ type: "error", text1: "Failed to send OTP" });
+          setLoading(false);
+          return;
         }
-      );
 
-      const smsData = smsRes.data?.[0];
-      if (smsData?.RESPONSE_CODE?.startsWith("RO_")) {
-        Toast.show({ type: "success", text1: "Activation successful" });
-        router.replace("/login");
+        Toast.show({ type: "success", text1: "OTP sent to your email/SMS" });
+        setOtpSent(true);
       } else {
-        Toast.show({ type: "error", text1: smsData?.RESPONSE_MESSAGE || "Activation failed" });
+        if (!otp.trim()) {
+          Toast.show({ type: "error", text1: "Please enter OTP" });
+          setLoading(false);
+          return;
+        }
+
+        // 2. Verify OTP with same Bearer token
+        const smsRes = await axios.post(
+          `${API_URL}api/OLMS/User/Registration/SMSVerification`,
+          {
+            USERNAME: encodedUsername,
+            PASSWORD: encodedPassword,
+            IPADDRESS: "1",
+            DEVICEID: "::1",
+            OTP: otp,
+          },
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+
+        const smsData = smsRes.data?.[0];
+        if (smsData?.RESPONSE_CODE?.startsWith("RO_")) {
+          Toast.show({ type: "success", text1: "Activation successful" });
+          router.replace("/login");
+        } else {
+          Toast.show({ type: "error", text1: smsData?.RESPONSE_MESSAGE || "Activation failed" });
+        }
       }
+    } catch (err) {
+      console.error(err);
+      Toast.show({ type: "error", text1: "Activation failed" });
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    console.error(err);
-    Toast.show({ type: "error", text1: "Activation failed" });
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
         <View style={styles.container}>
+          {showModal && (
+            <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, justifyContent: "center", alignItems: "center", zIndex: 9999 }}>
+              {CustomModalConfig.default({
+                title: "Reminder",
+                message: "Account activation is valid only for 15 minutes after registration.",
+                onConfirm: () => setShowModal(false),
+                onCancel: () => router.replace("/login"),
+              })}
+            </View>
+          )}
+
+          <TouchableOpacity style={styles.topBackButton} onPress={() => router.back()}>
+            <Text style={styles.topBackText}>← Back</Text>
+          </TouchableOpacity>
+          
           <View style={styles.headerContainer}>
             <Ionicons name="checkmark-circle-outline" size={70} color="#ff5a5f" />
             <Text style={styles.mainLabel}>Account Activation</Text>
@@ -203,4 +222,13 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   activateButtonText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
+   topBackButton: {
+    marginTop: 10,
+    marginLeft: -10,
+  },
+  topBackText: {
+    color: "#ff5a5f",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
 });
