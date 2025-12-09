@@ -4,7 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { encode as btoa } from "base-64";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -30,6 +30,25 @@ export default function Activation() {
   const encodedUsername = btoa(credential);
   const encodedPassword = btoa(password);
   const [showModal, setShowModal] = useState(true);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [otpSentTime, setOtpSentTime] = useState<number | null>(null);
+
+  useEffect(() => {
+  if (resendCooldown <= 0) return;
+
+  const interval = setInterval(() => {
+    setResendCooldown(prev => {
+      if (prev <= 1) {
+        clearInterval(interval);
+        return 0;
+      }
+      return prev - 1;
+    });
+  }, 1000);
+
+  return () => clearInterval(interval);
+}, [resendCooldown]);
+
 
   const handleActivate = async () => {
     if (!credential.trim() || !password.trim()) {
@@ -75,6 +94,10 @@ export default function Activation() {
 
         Toast.show({ type: "success", text1: "OTP sent to your email/SMS" });
         setOtpSent(true);
+
+        setOtpSentTime(Date.now()); // store timestamp of first successful OTP
+        setResendCooldown(15 * 60); // 15 minutes in seconds
+
       } else {
         if (!otp.trim()) {
           Toast.show({ type: "error", text1: "Please enter OTP" });
@@ -112,6 +135,47 @@ export default function Activation() {
       setLoading(false);
     }
   };
+
+  const handleResendOTP = async () => {
+  if (resendCooldown > 0) return; // prevent resend during cooldown
+
+  try {
+    const token = await AsyncStorage.getItem("registrationToken");
+    if (!token) {
+      Toast.show({ type: "error", text1: "Registration token missing" });
+      return;
+    }
+
+    const resendRes = await axios.post(
+      `${API_URL}api/OLMS/User/Registration/OTP/Resend`,
+      {
+        USERNAME: encodedUsername,
+        PASSWORD: encodedPassword,
+        IPADDRESS: "1",
+        DEVICEID: "::1",
+      },
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+
+    const resendData = resendRes.data?.[0];
+
+    if (!resendData || !resendData.RCS) {
+      Toast.show({ type: "error", text1: "Failed to resend OTP" });
+      return;
+    }
+
+    Toast.show({ type: "success", text1: "OTP resent successfully" });
+
+    // Start 15-minute cooldown
+    setResendCooldown(15 * 60); // 15 minutes in seconds
+
+  } catch (err) {
+    console.error(err);
+    Toast.show({ type: "error", text1: "Resend failed" });
+  }
+};
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
@@ -167,22 +231,42 @@ export default function Activation() {
               </TouchableOpacity>
             </View>
 
-            {otpSent && (
-              <>
-                <Text style={styles.label}>OTP</Text>
-                <View style={styles.inputWrapper}>
-                  <MaterialIcons name="sms" size={20} color="#ff5a5f" style={styles.icon} />
-                  <TextInput
-                    placeholder="Enter OTP"
-                    placeholderTextColor="#999"
-                    style={styles.input}
-                    value={otp}
-                    onChangeText={setOtp}
-                    keyboardType="number-pad"
-                  />
-                </View>
-              </>
-            )}
+           {otpSent && (
+            <>
+              <Text style={styles.label}>OTP</Text>
+              <View style={styles.inputWrapper}>
+                <MaterialIcons name="sms" size={20} color="#ff5a5f" style={styles.icon} />
+                <TextInput
+                  placeholder="Enter OTP"
+                  placeholderTextColor="#999"
+                  style={styles.input}
+                  value={otp}
+                  onChangeText={setOtp}
+                  keyboardType="number-pad"
+                />
+              </View>
+
+              <TouchableOpacity
+                onPress={handleResendOTP}
+                disabled={resendCooldown > 0}
+                style={{ marginTop: 10 }}
+              >
+                <Text
+                  style={{
+                    textAlign: "center",
+                    color: resendCooldown > 0 ? "#aaa" : "#ff5a5f",
+                    fontWeight: "600",
+                    fontSize: 14,
+                  }}
+                >
+                  {resendCooldown > 0
+                    ? `Resend OTP in ${resendCooldown}s`
+                    : "Resend OTP"}
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
+
           </View>
 
           <TouchableOpacity

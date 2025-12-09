@@ -1,17 +1,20 @@
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import NetInfo from '@react-native-community/netinfo';
 import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { BlurView } from 'expo-blur';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Image, StyleSheet, Text, View } from 'react-native';
 import { Provider as PaperProvider } from 'react-native-paper';
 import 'react-native-reanimated';
+import { Easing } from 'react-native-reanimated';
 import Toast from 'react-native-toast-message';
 import CustomToastConfig from './customtoast';
 
 // ------------------ Global API URL ---------------------------------------------
 // global.API_URL = "https://devolamobile-api.manilateachersonline.com/"; // deployed
- global.API_URL = "http://172.16.20.32:45459/";
+ global.API_URL = "http://172.16.20.32:45457/";
 // -------------------------------------------------------------------------------
 
 export const unstable_settings = {
@@ -67,6 +70,74 @@ export default function RootLayout() {
     return () => unsubscribe();
   }, [isConnected]);
 
+  const [ready, setReady] = useState(false);
+  const slideAnim = useRef(new Animated.Value(50)).current; // start 50px below
+  const textOpacity = useRef(new Animated.Value(0)).current;
+  const blurAnim = useRef(new Animated.Value(0)).current; // 0 = no blur, 1 = full blur
+
+  useEffect(() => {
+    // Slide up icon
+    Animated.timing(slideAnim, {
+      toValue: 0,
+      duration: 800,
+      useNativeDriver: true,
+    }).start(() => {
+      // Fade in text after slide
+      Animated.timing(textOpacity, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }).start(() => {
+        // Start pulsating blur loop after text appears
+        Animated.loop(
+          Animated.sequence([
+            Animated.timing(blurAnim, {
+              toValue: 1,
+              duration: 800,
+              easing: Easing.inOut(Easing.ease),
+              useNativeDriver: true,
+            }),
+            Animated.timing(blurAnim, {
+              toValue: 0,
+              duration: 800,
+              easing: Easing.inOut(Easing.ease),
+              useNativeDriver: true,
+            }),
+          ])
+        ).start();
+      });
+    });
+
+    const timeout = setTimeout(() => setReady(true), 4000); // splash duration
+    return () => clearTimeout(timeout);
+  }, []);
+
+  if (!ready) {
+    return (
+      <View style={styles.container}>
+        <Animated.View style={{ transform: [{ translateY: slideAnim }], alignItems: 'center' }}>
+          <Image
+            source={require('@/assets/images/ola_splash.png')}
+            style={{ width: 200, height: 200 }}
+          />
+          <Animated.Text style={[styles.text, { opacity: textOpacity }]}>
+            OLA - MOBILE
+          </Animated.Text>
+        </Animated.View>
+
+        {/* android version text */}
+        <View style={styles.versionContainer}>
+          <Text style={styles.versionText}>App Build v2.0.0</Text>
+        </View>
+
+        {/* Blur overlay */}
+        <Animated.View style={{ ...StyleSheet.absoluteFillObject, opacity: blurAnim }}>
+          <BlurView intensity={100} style={{ flex: 1 }} />
+        </Animated.View>
+      </View>
+    );
+  }
+
   return (
     <>
       <PaperProvider>
@@ -106,3 +177,30 @@ export default function RootLayout() {
     </>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  text: {
+    marginTop: 20, // below the image
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#ff5a5f',
+  },
+  versionContainer: {
+  position: 'absolute',
+  bottom: 30,
+  width: '100%',
+  alignItems: 'center',
+},
+
+versionText: {
+  fontSize: 14,
+  color: '#999',
+},
+
+});
