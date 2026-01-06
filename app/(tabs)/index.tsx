@@ -1,7 +1,7 @@
 import { getData } from "@/utils/storage";
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect } from "@react-navigation/native";
 import axios from "axios";
-import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
@@ -22,13 +22,14 @@ export default function HomeScreen() {
     const storedUser = await getData("user");
     console.log("Stored user:", storedUser);
 
-    if (storedUser?.firstname) setUserName(storedUser.firstname);
-    else setUserName("Unknown");
-
     if (!storedUser?.token || !storedUser?.username) {
       setLoading(false);
+      router.replace("/login");
       return;
     }
+
+    if (storedUser?.firstname) setUserName(storedUser.firstname);
+    else setUserName("Unknown");
 
     try {
       const response = await axios.post(
@@ -110,8 +111,9 @@ export default function HomeScreen() {
       {/* Header */}
       <View style={styles.cardHeader}>
         <View style={styles.avatarContainer}>
-          <Image source={require("@/components/ui/munchkin.jpeg")} style={styles.avatar} />
+          <Ionicons name="person" size={50} color="#fff" />
         </View>
+
         <Text style={styles.userName}>{userName}</Text>
         <Text style={styles.cardTitle}>Manage Loans</Text>
         <Text style={styles.cardSubtitle}>
@@ -225,8 +227,18 @@ const styles = StyleSheet.create({
     position: "relative",
     marginTop: 20,
   },
-  avatarContainer: { marginBottom: 8 },
-  avatar: { width: 80, height: 80, borderRadius: 50, backgroundColor: "#ddd" },
+  avatarContainer: {
+  width: 80,
+  height: 80,
+  borderRadius: 100,
+  backgroundColor: '#ff5a5f',
+  justifyContent: 'center',
+  alignItems: 'center',
+  marginBottom: 8,
+  },
+  avatar: {
+  // ahhahaha
+  },
   userName: {
     fontSize: 18,
     fontWeight: "bold",

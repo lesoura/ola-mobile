@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Dimensions,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -16,7 +17,8 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  useWindowDimensions,
+  View
 } from "react-native";
 import Animated, {
   Easing,
@@ -37,6 +39,24 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false); // <-- added
   const [showPassword, setShowPassword] = useState(false);
+  const { height: windowHeight } = useWindowDimensions(); // triggers on orientation / keyboard changes
+    const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+    useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      (e) => setKeyboardHeight(e.endCoordinates.height)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      () => setKeyboardHeight(0)
+    );
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const handleLogin = async () => {
     if (!username.trim() || !password.trim()) {
@@ -146,11 +166,15 @@ export default function Login() {
   }));
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+     <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1 }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
         <View style={styles.container}>
           {/* Logo */}
           <Animated.View style={[styles.imageContainer, animatedStyle]}>
@@ -239,8 +263,8 @@ export default function Login() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff", justifyContent: "space-between" },
-  imageContainer: { width: "100%", height: "50%", overflow: "hidden" },
+  container: { flex: 1, backgroundColor: "#fff"},
+  imageContainer: { width: "100%", height: 450, overflow: "hidden" },
   image: { width: "100%", height: "100%" },
   ribbon: {
     position: "absolute",
@@ -254,7 +278,6 @@ const styles = StyleSheet.create({
   },
   bottomFormContainer: {
     backgroundColor: "#f2f2f2",
-    flex: 1,
     justifyContent: "space-between",
     padding: 20,
     borderBottomRightRadius: 30,
