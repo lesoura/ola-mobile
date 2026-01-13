@@ -17,7 +17,7 @@ import Toast from "react-native-toast-message";
 
 export default function LoanDetailsPage() {
   const router = useRouter();
-  const { refid } = useLocalSearchParams();
+  const { refid, refresh } = useLocalSearchParams();
   const [loading, setLoading] = useState(true);
   const [loan, setLoan] = useState<any | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -25,11 +25,17 @@ export default function LoanDetailsPage() {
   const statusToStep = (status: string | undefined) => {
     if (!status) return 1;
     const s = status.toLowerCase();
+
     if (s.includes("calculation")) return 1;
-    if (s.includes("submitted") || s.includes("payslip")) return 2;
+    if (s.includes("payslip")) return 2;
+
+    // Submitted should go to Approval (step 3)
+    if (s.includes("submitted")) return 3;
+
     if (s.includes("approval") || s.includes("approved")) return 3;
     if (s.includes("confirmation") || s.includes("confirmed")) return 4;
     if (s.includes("release") || s.includes("released")) return 5;
+
     return 1;
   };
 
@@ -88,7 +94,7 @@ export default function LoanDetailsPage() {
           };
           if (refid) fetchDetails();
           else setLoading(false);
-        }, [refid]);
+        }, [refid, refresh]);
 
   const tableHead = ["Field", "Value"];
   const tableData = loan
@@ -224,18 +230,28 @@ export default function LoanDetailsPage() {
       {/* Progress bar */}
       <View style={styles.progressCard}>
         <Text style={styles.progressText}>
-          Completed {step - 1} step{step - 1 > 1 ? "s" : ""} out of 5
+          Completed {step === 3 ? 2 : step - 1} steps out of 5
         </Text>
         <View style={styles.progressContainer}>
           <View style={styles.progressBackground}>
             <View style={[styles.progressFill, { width: cancelled ? "100%" : `${progress * 100}%`, backgroundColor: cancelled ? "#ff5a5f" : "#ff9800" }]} />
           </View>
           <View style={styles.progressLabels}>
-            <Text style={[styles.progressLabel, { color: step > 1 ? "#4caf50" : "#ff9800" }]}>Calculation</Text>
-            <Text style={[styles.progressLabel, { color: step > 2 ? "#4caf50" : step === 2 ? "#ff9800" : "#bbb" }]}>Payslip</Text>
-            <Text style={[styles.progressLabel, { color: step > 3 ? "#4caf50" : step === 3 ? "#ff9800" : "#bbb" }]}>Approval</Text>
-            <Text style={[styles.progressLabel, { color: step > 4 ? "#4caf50" : step === 4 ? "#ff9800" : "#bbb" }]}>Confirmation</Text>
-            <Text style={[styles.progressLabel, { color: step === 5 ? "#ff9800" : "#bbb" }]}>Release</Text>
+            <Text style={[styles.progressLabel, { color: step >= 2 ? "#4caf50" : "#ff9800" }]}>
+              Calculation
+            </Text>
+            <Text style={[styles.progressLabel, { color: step >= 3 ? "#4caf50" : step === 2 ? "#ff9800" : "#bbb" }]}>
+              Payslip
+            </Text>
+            <Text style={[styles.progressLabel, { color: step === 3 ? "#ff9800" : step > 3 ? "#4caf50" : "#bbb" }]}>
+              Approval
+            </Text>
+            <Text style={[styles.progressLabel, { color: step === 4 ? "#ff9800" : step > 4 ? "#4caf50" : "#bbb" }]}>
+              Confirmation
+            </Text>
+            <Text style={[styles.progressLabel, { color: step === 5 ? "#ff9800" : "#bbb" }]}>
+              Release
+            </Text>
           </View>
         </View>
         <View style={styles.legendRow}>
