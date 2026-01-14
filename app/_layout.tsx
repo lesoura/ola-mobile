@@ -184,6 +184,7 @@ export default function RootLayout() {
             <Stack.Screen name="forgotpassword" options={{ headerShown: false }} />
             <Stack.Screen name="registration" options={{ headerShown: false }} />
             <Stack.Screen name="activation" options={{ headerShown: false }} />
+            <Stack.Screen name="loanconfirmation" options={{ headerShown: false }} />
             <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
           </Stack>
           <StatusBar style="auto" />

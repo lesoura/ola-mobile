@@ -47,8 +47,7 @@ export default function Activation() {
   }, 1000);
 
   return () => clearInterval(interval);
-}, [resendCooldown]);
-
+  }, [resendCooldown]);
 
   const handleActivate = async () => {
     if (!credential.trim() || !password.trim()) {
