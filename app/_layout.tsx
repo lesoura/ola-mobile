@@ -1,11 +1,19 @@
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { clearData, getData, saveData } from '@/utils/storage';
 import NetInfo from '@react-native-community/netinfo';
 import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { BlurView } from 'expo-blur';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Image, StyleSheet, Text, View } from 'react-native';
+import {
+  Animated,
+  AppState,
+  Image,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { Provider as PaperProvider } from 'react-native-paper';
 import 'react-native-reanimated';
 import { Easing } from 'react-native-reanimated';
@@ -13,53 +21,52 @@ import Toast from 'react-native-toast-message';
 import CustomToastConfig from './customtoast';
 
 // ------------------ Global API URL ---------------------------------------------
- global.API_URL = "https://devolamobile-api.manilateachersonline.com/"; // deployed
+global.API_URL = 'https://devolamobile-api.manilateachersonline.com/'; // deployed
 // global.API_URL = "http://172.16.20.32:45457/";
 // -------------------------------------------------------------------------------
 
 export const unstable_settings = {
-  initialRouteName: "login",
+  initialRouteName: 'login',
 };
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const router = useRouter();
   const [isConnected, setIsConnected] = useState(true);
 
+  // ------------------ NETWORK STATUS -------------------------------------------
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener((state) => {
-      // Offline / Back online detection
       if (!state.isConnected && isConnected) {
         Toast.show({
-          type: "error" as const,
-          text1: "No internet connection",
+          type: 'error',
+          text1: 'No internet connection',
         });
       } else if (state.isConnected && !isConnected) {
         Toast.show({
-          type: "success" as const,
-          text1: "Back online",
+          type: 'success',
+          text1: 'Back online',
         });
       }
 
-      // Connected but no actual internet
       if (state.isConnected && state.isInternetReachable === false) {
         Toast.show({
-          type: "error",
-          text1: "Connected but no internet access",
+          type: 'error',
+          text1: 'Connected but no internet access',
         });
       }
 
-      // Slow internet detection (cellularGeneration might not exist)
       if (
         state.isConnected &&
         state.details &&
-        "cellularGeneration" in state.details &&
-        typeof state.details.cellularGeneration === "string"
+        'cellularGeneration' in state.details &&
+        typeof state.details.cellularGeneration === 'string'
       ) {
-        const slowTypes = ["2g", "slow-2g"];
+        const slowTypes = ['2g', 'slow-2g'];
         if (slowTypes.includes(state.details.cellularGeneration)) {
           Toast.show({
-            type: "info" as const,
-            text1: "Slow internet detected",
+            type: 'info',
+            text1: 'Slow internet detected',
           });
         }
       }
@@ -70,25 +77,53 @@ export default function RootLayout() {
     return () => unsubscribe();
   }, [isConnected]);
 
-  const [ready, setReady] = useState(false);
-  const slideAnim = useRef(new Animated.Value(50)).current; // start 50px below
-  const textOpacity = useRef(new Animated.Value(0)).current;
-  const blurAnim = useRef(new Animated.Value(0)).current; // 0 = no blur, 1 = full blur
+  // ------------------ SESSION HANDLING ------------------------------------------
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', async (state) => {
+      if (state === 'inactive' || state === 'background') {
+        await saveData('sessionActive', false);
+      }
+    });
+
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
-    // Slide up icon
+    const checkSession = async () => {
+      const sessionActive = await getData('sessionActive');
+
+      if (sessionActive === false) {
+        await clearData('user');
+        await clearData('ftpRef');
+
+        setTimeout(() => {
+          router.replace('/login');
+        }, 0);
+      }
+
+      await saveData('sessionActive', true);
+    };
+
+    checkSession();
+  }, []);
+
+  // ------------------ SPLASH SCREEN ---------------------------------------------
+  const [ready, setReady] = useState(false);
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const textOpacity = useRef(new Animated.Value(0)).current;
+  const blurAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
     Animated.timing(slideAnim, {
       toValue: 0,
       duration: 800,
       useNativeDriver: true,
     }).start(() => {
-      // Fade in text after slide
       Animated.timing(textOpacity, {
         toValue: 1,
         duration: 600,
         useNativeDriver: true,
       }).start(() => {
-        // Start pulsating blur loop after text appears
         Animated.loop(
           Animated.sequence([
             Animated.timing(blurAnim, {
@@ -108,14 +143,16 @@ export default function RootLayout() {
       });
     });
 
-    const timeout = setTimeout(() => setReady(true), 4000); // splash duration
+    const timeout = setTimeout(() => setReady(true), 4000);
     return () => clearTimeout(timeout);
   }, []);
 
   if (!ready) {
     return (
       <View style={styles.container}>
-        <Animated.View style={{ transform: [{ translateY: slideAnim }], alignItems: 'center' }}>
+        <Animated.View
+          style={{ transform: [{ translateY: slideAnim }], alignItems: 'center' }}
+        >
           <Image
             source={require('@/assets/images/ola_splash.png')}
             style={{ width: 200, height: 200 }}
@@ -125,12 +162,10 @@ export default function RootLayout() {
           </Animated.Text>
         </Animated.View>
 
-        {/* android version text */}
         <View style={styles.versionContainer}>
           <Text style={styles.versionText}>App Build v2.0.0</Text>
         </View>
 
-        {/* Blur overlay */}
         <Animated.View style={{ ...StyleSheet.absoluteFillObject, opacity: blurAnim }}>
           <BlurView intensity={100} style={{ flex: 1 }} />
         </Animated.View>
@@ -138,46 +173,29 @@ export default function RootLayout() {
     );
   }
 
+  // ------------------ APP NAVIGATION --------------------------------------------
   return (
     <>
       <PaperProvider>
         <ThemeProvider value={DefaultTheme}>
           <Stack>
-            <Stack.Screen
-              name="login"
-              options={{ headerShown: false, animation: 'fade' }}
-            />
-            <Stack.Screen
-              name="(tabs)"
-              options={{ headerShown: false, animation: 'fade' }}
-            />
-            <Stack.Screen
-              name="forgotpassword"
-              options={{ headerShown: false, animation: 'fade' }}
-            />
-            <Stack.Screen
-              name="registration"
-              options={{ headerShown: false, animation: 'fade' }}
-            />
-            <Stack.Screen
-              name="activation"
-              options={{ headerShown: false, animation: 'fade' }}
-            />
-            <Stack.Screen
-              name="modal"
-              options={{ presentation: "modal", title: "Modal" }}
-            />
+            <Stack.Screen name="login" options={{ headerShown: false }} />
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="forgotpassword" options={{ headerShown: false }} />
+            <Stack.Screen name="registration" options={{ headerShown: false }} />
+            <Stack.Screen name="activation" options={{ headerShown: false }} />
+            <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
           </Stack>
           <StatusBar style="auto" />
         </ThemeProvider>
       </PaperProvider>
 
-      {/* Toast */}
       <Toast config={CustomToastConfig} />
     </>
   );
 }
 
+// ------------------ STYLES ------------------------------------------------------
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -186,21 +204,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   text: {
-    marginTop: 20, // below the image
+    marginTop: 20,
     fontSize: 24,
     fontWeight: 'bold',
     color: '#ff5a5f',
   },
   versionContainer: {
-  position: 'absolute',
-  bottom: 30,
-  width: '100%',
-  alignItems: 'center',
-},
-
-versionText: {
-  fontSize: 14,
-  color: '#999',
-},
-
+    position: 'absolute',
+    bottom: 30,
+    width: '100%',
+    alignItems: 'center',
+  },
+  versionText: {
+    fontSize: 14,
+    color: '#999',
+  },
 });
