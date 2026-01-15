@@ -20,210 +20,216 @@ import Toast from "react-native-toast-message";
 
 export default function ApplyForLoan() {
   const router = useRouter();
+
   const [amount, setAmount] = useState("");
   const [terms, setTerms] = useState("");
   const [amountOptions, setAmountOptions] = useState<number[]>([]);
   const [termOptions, setTermOptions] = useState<string[]>([]);
   const [monthlyAmort, setMonthlyAmort] = useState<string | null>(null);
+
   const [loading, setLoading] = useState(false);
+  const [uploadingPayslip, setUploadingPayslip] = useState(false);
+
   const [user, setUser] = useState<any>(null);
   const [computed, setComputed] = useState(false);
   const [loadingRefs, setLoadingRefs] = useState(true);
-  const [step, setStep] = useState(1); // 1=Calculation, 2=Payslip, 3=Approval, 4=Confirmation, 5=Credit/Release
+
+  const [step, setStep] = useState(1);
   const [payslip, setPayslip] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
 
-  const progress =
-  step === 1 ? 0.2 :
-  step === 2 ? 0.4 :
-  step === 3 ? 0.6 :
-  step === 4 ? 0.8 : 1.0;
+  // 🔑 SINGLE SOURCE OF TRUTH
+  const [baseLoanRefId, setBaseLoanRefId] = useState<string | null>(null);
+  const [finalFilename, setFinalFilename] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchUserAndRefs = async () => {
       const storedUser = await getData("user");
       if (!storedUser) return;
+
       setUser(storedUser);
 
       const body = { USERNAME: storedUser.username, REFID: "", DEVICEID: "::1" };
+
       try {
         const [amtRes, termRes] = await Promise.all([
-          axios.post(
-            `${API_URL}api/OLMS/Reference/Loan/Amount`,
-            body,
-            { headers: { Authorization: `Bearer ${storedUser.token}` } }
-          ),
-          axios.post(
-            `${API_URL}api/OLMS/Reference/Loan/Term`,
-            body,
-            { headers: { Authorization: `Bearer ${storedUser.token}` } }
-          ),
+          axios.post(`${API_URL}api/OLMS/Reference/Loan/Amount`, body, {
+            headers: { Authorization: `Bearer ${storedUser.token}` },
+          }),
+          axios.post(`${API_URL}api/OLMS/Reference/Loan/Term`, body, {
+            headers: { Authorization: `Bearer ${storedUser.token}` },
+          }),
         ]);
+
         setAmountOptions(amtRes.data.map((a: any) => a.AMT));
         setAmount(amtRes.data[0]?.AMT?.toString() || "");
         setTermOptions(termRes.data.map((t: any) => t.TRM));
         setTerms(termRes.data[0]?.TRM || "");
-      } catch (err) {
-        console.error(err);
-        Toast.show({ type: "error", text1: "Error fetching reference data" });
       } finally {
         setLoadingRefs(false);
       }
     };
+
     fetchUserAndRefs();
   }, []);
 
   const handleCompute = async () => {
-    if (!user) {
-      Toast.show({ type: "error", text1: "User not found", text2: "Please log in again." });
-      return;
-    }
+    if (!user) return;
+
     setLoading(true);
     try {
-      const body = { PRINCIPAL: amount, TERMS: terms, USERNAME: user.username, DEVICEID: "::1" };
       const res = await axios.post(
         `${API_URL}api/OLMS/Loan/Calculator`,
-        body,
+        {
+          PRINCIPAL: amount,
+          TERMS: terms,
+          USERNAME: user.username,
+          DEVICEID: "::1",
+        },
         { headers: { Authorization: `Bearer ${user.token}` } }
       );
-      const amortValue = res.data?.[0]?.Monthly_Amortization;
-      if (amortValue) {
-        setMonthlyAmort(amortValue.toString());
+
+      const amort = res.data?.[0]?.Monthly_Amortization;
+      if (amort) {
+        setMonthlyAmort(amort.toString());
         setComputed(true);
-        Toast.show({ type: "success", text1: "Computation Successful" });
-      } else {
-        Toast.show({ type: "error", text1: "Error", text2: "No amortization returned" });
       }
-    } catch (err) {
-      console.error(err);
-      Toast.show({ type: "error", text1: "Unable to compute loan" });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleClear = () => {
-    setAmount(amountOptions[0]?.toString() || "");
-    setTerms(termOptions[0] || "");
-    setMonthlyAmort(null);
-    setComputed(false);
-    setStep(1);
-    setPayslip(null);
-    Toast.show({ type: "info", text1: "Cleared", text2: "Fields have been reset." });
+  const handleApplyLoan = () => setStep(2);
+
+  // =============================
+  // PAYSLIP UPLOAD (GENERATE ID)
+  // =============================
+  const uploadPayslipFile = async (file: any) => {
+    if (!user) return;
+
+    try {
+      setUploadingPayslip(true);
+
+      let loanRefId = baseLoanRefId;
+
+      // 🔑 GENERATE ONCE
+      if (!loanRefId) {
+        const idRes = await axios.post(
+          `${API_URL}api/OLMS/Reference/Loan/Id`,
+          { USERNAME: user.username, DEVICEID: "::1" },
+          { headers: { Authorization: `Bearer ${user.token}` } }
+        );
+
+        const actId = idRes.data?.[0]?.ACT_ID;
+        if (!actId) throw new Error("No ACT_ID");
+
+        const random = Math.floor(Math.random() * 9000000000) + 1000000000;
+        loanRefId = `${actId}${random}`;
+        setBaseLoanRefId(loanRefId);
+      }
+
+      const filename = `PAYSLIP_${loanRefId}.jpg`;
+      setFinalFilename(filename);
+
+      const ftpRef = await getData("ftpRef");
+
+      const fileBase64 = await FileSystem.readAsStringAsync(file.uri, {
+        encoding: "base64",
+      });
+
+      await axios.post(
+        `${API_URL}api/OLMS/Loan/SavingPayslipFTP`,
+        {
+          USERNAME: user.username,
+          FILE_NAME_PAYSLIP: filename,
+          FILE_PAYSLIP_BYTE: fileBase64,
+          FTP_PATH: `${ftpRef.PATH.trimEnd("/")}/${filename}`,
+          FTP_USER: ftpRef.USER,
+          FTP_PWRD: ftpRef.PWRD,
+          IP_ADDRESS: "::1",
+          DEVICEID: "::1",
+        },
+        { headers: { Authorization: `Bearer ${user.token}` } }
+      );
+
+      setPayslip(file);
+      Toast.show({ type: "success", text1: "Payslip uploaded" });
+    } catch (e) {
+      Toast.show({ type: "error", text1: "Upload failed" });
+    } finally {
+      setUploadingPayslip(false);
+    }
   };
 
-  const handleApplyLoan = () => {
-    setStep(2);
-    Toast.show({ type: "info", text1: "Payslip Upload", text2: "Upload your payslip to proceed." });
-  };
-
+  // =============================
+  // SUBMIT LOAN (REUSE ID)
+  // =============================
   const handleSubmitLoan = async () => {
-    if (!user || !payslip || !monthlyAmort) {
-      Toast.show({ type: "error", text1: "Missing information" });
+    if (!baseLoanRefId || !finalFilename || !monthlyAmort) {
+      Toast.show({ type: "error", text1: "Missing payslip or ID" });
       return;
     }
 
     try {
       setLoading(true);
 
-      // Get FTP details
       const ftpRef = await getData("ftpRef");
-      if (!ftpRef) {
-        Toast.show({ type: "error", text1: "FTP reference not found" });
-        return;
-      }
 
-      // STEP 1: Generate Loan ID
-      const idRes = await axios.post(
-        `${API_URL}api/OLMS/Reference/Loan/Id`,
-        {
-          USERNAME: user.username,
-          DEVICEID: "::1",
-        },
-        { headers: { Authorization: `Bearer ${user.token}` } }
-      );
-
-      const generatedId = idRes.data?.[0]?.ACT_ID;
-      if (!generatedId) {
-        Toast.show({ type: "error", text1: "Failed to generate loan ID" });
-        return;
-      }
-
-      // Build final filename (PAYSLIP_<ID><random>.jpg)
-      const randomSuffix = Math.floor(Math.random() * 9000000000) + 1000000000;
-      const finalFilename = `${ftpRef.NAME}${generatedId}${randomSuffix}.jpg`;
-      const finalLoanRefId = `${generatedId}${randomSuffix}`;
-
-      // STEP 2: Validate ID
-      const validRes = await axios.post(
+      // optional validation
+      const valid = await axios.post(
         `${API_URL}api/OLMS/Loan/Validation/Id`,
         {
           USERNAME: user.username,
-          ID: finalLoanRefId,
+          ID: baseLoanRefId,
           DEVICEID: "::1",
         },
         { headers: { Authorization: `Bearer ${user.token}` } }
       );
 
-      if (validRes.data !== 0) {
-        Toast.show({ type: "error", text1: "Loan ID already exists, try again" });
+      if (valid.data !== 0) {
+        Toast.show({ type: "error", text1: "Loan ID exists" });
         return;
       }
 
-      // Build full path
-      const finalPath = `${ftpRef.PATH}${finalFilename}`;
-
-      // STEP 3: Submit Application
-      const submitBody = {
-        USERNAME: user.username,
-        LOAN_REF_ID: finalLoanRefId,
-        TERMS: Number(terms),
-        PRINCIPAL: Number(amount),
-        M_AMORT: Number(monthlyAmort),
-        FILE_PATH: finalPath,
-        FILE_NAME: finalFilename,
-        FILE_REASON: ftpRef.RSON,
-        IP_ADDRESS: "::1",
-        DEVICEID: "::1",
-      };
-
       await axios.post(
         `${API_URL}api/OLMS/Loan/Application`,
-        submitBody,
+        {
+          USERNAME: user.username,
+          LOAN_REF_ID: baseLoanRefId,
+          TERMS: Number(terms),
+          PRINCIPAL: Number(amount),
+          M_AMORT: Number(monthlyAmort),
+          FILE_NAME: finalFilename,
+          FILE_PATH: `${ftpRef.PATH}${finalFilename}`,
+          FILE_REASON: ftpRef.RSON,
+          IP_ADDRESS: "::1",
+          DEVICEID: "::1",
+        },
         { headers: { Authorization: `Bearer ${user.token}` } }
       );
 
-      // inside handleSubmitLoan, after successful submission
-      Toast.show({ type: "success", text1: "Loan Application Submitted!" });
+      Toast.show({ type: "success", text1: "Loan submitted" });
 
-      // reset page state
-      setStep(1);                          // go back to calculation step
-      setAmount(amountOptions[0]?.toString() || "");
-      setTerms(termOptions[0] || "");
-      setMonthlyAmort(null);
-      setComputed(false);
-      setPayslip(null);
-      setGeneratedLoanId(null);
+      // reset
+      setBaseLoanRefId(null);
       setFinalFilename(null);
-      setLoading(false);
-      setUploadingPayslip(false);
+      setPayslip(null);
+      setStep(1);
+      setComputed(false);
 
-      // optionally navigate back or just stay on the same screen
-      router.push({
-        pathname: "/(tabs)",
-        params: { refresh: Date.now() },
-      });
-
-    } catch (err) {
-      console.error(err);
-      Toast.show({ type: "error", text1: "Submission failed" });
+      router.push({ pathname: "/(tabs)", params: { refresh: Date.now() } });
     } finally {
       setLoading(false);
     }
   };
 
-  const [uploadingPayslip, setUploadingPayslip] = useState(false);
-  const [generatedLoanId, setGeneratedLoanId] = useState<string | null>(null);
-  const [finalFilename, setFinalFilename] = useState<string | null>(null);
+  const handleClear = () => {
+    setAmount("");
+    setTerms("");
+    setMonthlyAmort(null);
+    setComputed(false);
+  };
+
+  const progress = step === 1 ? 0.2 : step === 2 ? 0.4 : 0.6;
 
   const handleGalleryPayslip = async () => {
     try {
@@ -238,83 +244,6 @@ export default function ApplyForLoan() {
       await uploadPayslipFile(file);
     } catch (e) {
       Toast.show({ type: "error", text1: "Failed to pick file" });
-    }
-  };
-
-  const uploadPayslipFile = async (file: any) => {
-    if (!user) {
-      Toast.show({ type: "error", text1: "User not found" });
-      return;
-    }
-
-    try {
-      setUploadingPayslip(true);
-
-      // STEP 1: Generate Loan ID (once)
-      let generatedId = generatedLoanId;
-      if (!generatedId) {
-        const idRes = await axios.post(
-          `${API_URL}api/OLMS/Reference/Loan/Id`,
-          {
-            USERNAME: user.username,
-            DEVICEID: "::1",
-          },
-          { headers: { Authorization: `Bearer ${user.token}` } }
-        );
-
-        generatedId = idRes.data?.[0]?.ACT_ID;
-        if (!generatedId) {
-          Toast.show({ type: "error", text1: "Failed to generate loan ID" });
-          return;
-        }
-
-        setGeneratedLoanId(generatedId);
-      }
-
-      // STEP 2: Build filename
-      const randomSuffix = Math.floor(Math.random() * 9000000000) + 1000000000;
-      const filename = `PAYSLIP_${generatedId}${randomSuffix}.jpg`;
-      setFinalFilename(filename);
-
-      // STEP 3: Get FTP reference
-      const ftpRef = await getData("ftpRef");
-      if (!ftpRef) {
-        Toast.show({ type: "error", text1: "FTP reference not found" });
-        return;
-      }
-
-      // STEP 4: Read file as base64
-      const fileBase64 = await FileSystem.readAsStringAsync(file.uri, {
-        encoding: "base64",
-      });
-
-      // STEP 5: Upload to FTP via API
-      const body = {
-        USERNAME: user.username,
-        FILE_NAME_PAYSLIP: filename,
-        FILE_PAYSLIP_BYTE: fileBase64,
-        FTP_PATH: `${ftpRef.PATH.trimEnd("/")}/${filename}`,
-        FTP_USER: ftpRef.USER,
-        FTP_PWRD: ftpRef.PWRD,
-        IP_ADDRESS: "::1",
-        DEVICEID: "::1",
-      };
-
-      await axios.post(
-        `${API_URL}api/OLMS/Loan/SavingPayslipFTP`,
-        body,
-        { headers: { Authorization: `Bearer ${user.token}` } }
-      );
-
-      // STEP 6: Save locally for submission step
-      setPayslip(file);
-
-      Toast.show({ type: "success", text1: "Payslip uploaded successfully" });
-    } catch (error) {
-      console.error(error);
-      Toast.show({ type: "error", text1: "Failed to upload payslip" });
-    } finally {
-      setUploadingPayslip(false);
     }
   };
 
