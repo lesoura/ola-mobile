@@ -32,9 +32,9 @@ export default function LoanDetailsPage() {
     // Submitted should go to Approval (step 3)
     if (s.includes("submitted")) return 3;
 
-    if (s.includes("approval") || s.includes("approved")) return 3;
-    if (s.includes("confirmation") || s.includes("confirmed")) return 4;
-    if (s.includes("release") || s.includes("released")) return 5;
+    if (s.includes("approval") || s.includes("approved")) return 4;
+    if (s.includes("confirmation") || s.includes("confirmed")) return 5;
+    if (s.includes("release") || s.includes("released")) return 6;
 
     return 1;
   };
@@ -83,7 +83,8 @@ export default function LoanDetailsPage() {
             REMARKS: "Cancelled",
             });
         } else {
-            setLoan(data[0]);
+            const latest = data[data.length - 1];
+            setLoan(latest);
         }
         }}
       catch (err) {
@@ -111,7 +112,9 @@ export default function LoanDetailsPage() {
       }).map(([label, value]) => [label, value])
     : [];
 
-    const cancelled = loan?.REMARKS === "Cancelled";
+    const cancelled = loan?.REMARKS === "Cancelled" || loan?.LOAN_STATUS?.toLowerCase() === "released";
+
+    const disabledConfirm = loan?.REMARKS === "Cancelled" || loan?.LOAN_STATUS?.toLowerCase() === "confirmed" || loan?.LOAN_STATUS?.toLowerCase() === "released" || loan?.LOAN_STATUS?.toLowerCase() === "submitted";
 
     const handleCancel = () => {
       setShowModal(true);
@@ -150,7 +153,7 @@ export default function LoanDetailsPage() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      {/* Back / Cancel Buttons */}
+      {/* Back / Cancel / Confirm Buttons */}
       <View style={styles.topButtonRow}>
         <TouchableOpacity
           style={styles.topButton}
@@ -158,19 +161,41 @@ export default function LoanDetailsPage() {
         >
           <Text style={styles.topButtonText}>← Back</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.topButton,
-            { backgroundColor: cancelled ? "#999" : "#999",
-              opacity: cancelled ? 0.4 : 1   // fade when disabled
-            }
-          ]}
-          onPress={handleCancel}
-          disabled={cancelled} // disable if cancelled
-        >
-          <Text style={styles.topButtonText}>Cancel</Text>
-        </TouchableOpacity>
-      </View>
+
+        <View style={{ flexDirection: "row", gap: 10 }}>
+          <TouchableOpacity
+              style={[
+                styles.topButton,
+                {
+                  backgroundColor: cancelled ? "#999" : "#999",
+                  opacity: cancelled ? 0.4 : 1,
+                },
+              ]}
+              onPress={handleCancel}
+              disabled={cancelled}
+            >
+              <Text style={styles.topButtonText}>Cancel</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.topButton,
+                { opacity: disabledConfirm ? 0.4 : 1 }
+              ]}
+              onPress={() =>
+                router.push({
+                  pathname: "/loanconfirmation",
+                  params: {
+                    refid: loan?.REFID_LOAN,
+                  },
+                })
+              }
+              disabled={disabledConfirm}
+            >
+              <Text style={styles.topButtonText}>Confirm</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
 
       {/* Header */}
       <View style={styles.cardHeader}>
@@ -184,6 +209,7 @@ export default function LoanDetailsPage() {
       {loading ? (
         <ActivityIndicator size="large" color="#ff5a5f" style={{ marginTop: 50 }} />
       ) : loan ? (
+        
         <View style={styles.formCard}>
           <Table>
             <Row
@@ -249,7 +275,7 @@ export default function LoanDetailsPage() {
             <Text style={[styles.progressLabel, { color: step === 4 ? "#ff9800" : step > 4 ? "#4caf50" : "#bbb" }]}>
               Confirmation
             </Text>
-            <Text style={[styles.progressLabel, { color: step === 5 ? "#ff9800" : "#bbb" }]}>
+            <Text style={[styles.progressLabel, { color: step === 5 ? "#ff9800" : step > 5 ? "#4caf50" : "#bbb" }]}>
               Release
             </Text>
           </View>

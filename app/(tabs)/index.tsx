@@ -137,13 +137,6 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      <TouchableOpacity
-        style={styles.confirmButton}
-        onPress={() => router.replace("/loanconfirmation")}
-      >
-        <Text style={styles.confirmButtonText}>Confirm Loan</Text>
-      </TouchableOpacity>
-
       {/* Table */}
       <View style={styles.tableCard}>
         <Table>
@@ -298,7 +291,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#ddd",
     marginBottom: 10,
-
+    marginTop: 20,
   },
   tableHead: {
     height: 40,
@@ -347,17 +340,4 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   applyButtonText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
-  confirmButton: {
-    alignSelf: "flex-end",
-    width: "25%",
-    paddingVertical: 8,
-    alignItems: "flex-end",
-    justifyContent: "center",
-  },
-  confirmButtonText: {
-    color: "#ff5a5f",
-    fontWeight: "bold",
-    fontSize: 14,
-    textDecorationLine: "underline",
-  },
 });
