@@ -118,7 +118,10 @@ export default function Help() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f2f2f2" },
+  container: { 
+    flex: 1, 
+    backgroundColor: "#f2f2f2" 
+  },
   cardHeader: {
     margin: 15,
     backgroundColor: "#fff",
@@ -161,9 +164,31 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 15,
   },
-  cardLabel: { fontSize: 16, fontWeight: "bold", color: "#000" },
-  cardBody: { paddingHorizontal: 15, paddingBottom: 15 },
-  description: { fontSize: 14, color: "#333", marginBottom: 8, textAlign: "justify" },
-  nextStepsTitle: { fontSize: 14, fontWeight: "bold", color: "#ff5a5f", marginTop: 8 },
-  stepText: { fontSize: 13, color: "#333", marginTop: 3, lineHeight: 18 },
+  cardLabel: { 
+    fontSize: 16, 
+    fontWeight: "bold", 
+    color: "#000" 
+  },
+  cardBody: { 
+    paddingHorizontal: 15, 
+    paddingBottom: 15 
+  },
+  description: { 
+    fontSize: 14, 
+    color: "#333", 
+    marginBottom: 8, 
+    textAlign: "justify" 
+  },
+  nextStepsTitle: { 
+    fontSize: 14, 
+    fontWeight: "bold", 
+    color: "#ff5a5f", 
+    marginTop: 8 
+  },
+  stepText: { 
+    fontSize: 13, 
+    color: "#333", 
+    marginTop: 3, 
+    lineHeight: 18 
+  },
 });

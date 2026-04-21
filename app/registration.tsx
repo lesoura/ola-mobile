@@ -7,14 +7,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import * as CryptoJS from "crypto-js";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import Toast from 'react-native-toast-message';
 
 export default function Registration() {
@@ -772,7 +765,9 @@ const styles = StyleSheet.create({
     borderBottomColor: "#ff5a5f",
     marginBottom: 15,
   },
-  icon: { marginRight: 10 },
+  icon: { 
+    marginRight: 10 
+  },
   input: {
     flex: 1,
     paddingVertical: 10,
@@ -812,8 +807,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   disabledInputWrapper: {
-  backgroundColor: "#eee", // greyed background
-  borderBottomColor: "#ccc",
+    backgroundColor: "#eee", // greyed background
+    borderBottomColor: "#ccc",
   },
   disabledInput: {
     fontWeight: "bold",

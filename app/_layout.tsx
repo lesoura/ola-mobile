@@ -6,14 +6,7 @@ import { BlurView } from 'expo-blur';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
-import {
-  Animated,
-  AppState,
-  Image,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Animated, AppState, Image, StyleSheet, Text, View } from 'react-native';
 import { Provider as PaperProvider } from 'react-native-paper';
 import 'react-native-reanimated';
 import { Easing } from 'react-native-reanimated';

@@ -7,15 +7,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Toast from "react-native-toast-message";
 
 export default function ApplyForLoan() {
@@ -37,7 +29,7 @@ export default function ApplyForLoan() {
   const [step, setStep] = useState(1);
   const [payslip, setPayslip] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
 
-  // 🔑 SINGLE SOURCE OF TRUTH
+  // 🔑
   const [baseLoanRefId, setBaseLoanRefId] = useState<string | null>(null);
   const [finalFilename, setFinalFilename] = useState<string | null>(null);
 

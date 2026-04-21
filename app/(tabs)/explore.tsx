@@ -28,7 +28,7 @@ export default function TabTwoScreen() {
 
   const handleLogoutConfirmed = async () => {
     setShowLogoutModal(false);
-    await handleLogout(); // call your existing logout function
+    await handleLogout();
   };
 
   const handleLogout = async () => {
@@ -41,7 +41,7 @@ export default function TabTwoScreen() {
         `${API_URL}api/OLMS/User/SignOut`,
         {
           USERNAME: storedUser.username,
-          IPADDRESS: '', // optional
+          IPADDRESS: '',
           DEVICEID: '::1',
         },
         {
@@ -196,7 +196,7 @@ export default function TabTwoScreen() {
         ...StyleSheet.absoluteFillObject,
         justifyContent: 'center',
         alignItems: 'center',
-        zIndex: 1000, // make sure it's above everything
+        zIndex: 1000,
       }}>
         {CustomModalConfig.default({
           title: "Confirm Logout",

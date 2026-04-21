@@ -212,7 +212,11 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f2f2f2", padding: 15 },
+  container: { 
+    flex: 1, 
+    backgroundColor: "#f2f2f2", 
+    padding: 15 
+  },
   cardHeader: {
     backgroundColor: "#fff",
     padding: 15,
@@ -228,13 +232,13 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   avatarContainer: {
-  width: 80,
-  height: 80,
-  borderRadius: 100,
-  backgroundColor: '#ff5a5f',
-  justifyContent: 'center',
-  alignItems: 'center',
-  marginBottom: 8,
+    width: 80,
+    height: 80,
+    borderRadius: 100,
+    backgroundColor: '#ff5a5f',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   avatar: {
   // ahhahaha
@@ -254,7 +258,11 @@ const styles = StyleSheet.create({
     borderBottomColor: "#ff5a5f",
     paddingBottom: 4,
   },
-  cardTitle: { fontSize: 24, fontWeight: "bold", color: "#ff5a5f" },
+  cardTitle: { 
+    fontSize: 24, 
+    fontWeight: "bold", 
+    color: "#ff5a5f" 
+  },
   cardSubtitle: {
     fontSize: 14,
     color: "#333",
@@ -282,9 +290,18 @@ const styles = StyleSheet.create({
     elevation: 3,
     zIndex: 10,
   },
-  statsColumn: { alignItems: "center" },
-  statsValue: { fontSize: 20, fontWeight: "bold", color: "#ff5a5f" },
-  statsLabel: { fontSize: 12, color: "#333" },
+  statsColumn: { 
+    alignItems: "center" 
+  },
+  statsValue: { 
+    fontSize: 20, 
+    fontWeight: "bold", 
+    color: "#ff5a5f" 
+  },
+  statsLabel: { 
+    fontSize: 12, 
+    color: "#333" 
+  },
   tableCard: {
     borderRadius: 12,
     overflow: "hidden",
@@ -305,7 +322,10 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#000",
   },
-  tableText: { textAlign: "center", fontSize: 14 },
+  tableText: { 
+    textAlign: "center", 
+    fontSize: 14 
+  },
   paginationContainer: {
     flexDirection: "row",
     justifyContent: "flex-end",
@@ -320,8 +340,14 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     marginLeft: 5,
   },
-  paginationButtonText: { color: "#ff5a5f", fontWeight: "bold", fontSize: 14 },
-  disabledButton: { opacity: 0.5 },
+  paginationButtonText: { 
+    color: "#ff5a5f", 
+    fontWeight: "bold", 
+    fontSize: 14 
+  },
+  disabledButton: { 
+    opacity: 0.5 
+  },
   pageIndicator: {
     fontSize: 14,
     fontWeight: "bold",
@@ -339,5 +365,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  applyButtonText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
+  applyButtonText: { 
+    color: "#fff", 
+    fontWeight: "bold", 
+    fontSize: 16 
+  },
 });

@@ -5,17 +5,7 @@ import axios from "axios";
 import { encode as btoa } from "base-64";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import Toast from "react-native-toast-message";
 import CustomModalConfig from "./customconfirmation";
 
@@ -282,12 +272,34 @@ export default function Activation() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff", padding: 25 },
-  headerContainer: { alignItems: "center", marginTop: 60, marginBottom: 40 },
-  mainLabel: { fontSize: 24, fontWeight: "bold", marginTop: 10 },
-  subLabel: { fontSize: 14, color: "#777" },
-  form: { marginVertical: 20 },
-  label: { fontSize: 14, fontWeight: "600", marginBottom: 5, color: "#555" },
+  container: { 
+    flex: 1, 
+    backgroundColor: "#fff", 
+    padding: 25 
+  },
+  headerContainer: { 
+    alignItems: "center", 
+    marginTop: 60, 
+    marginBottom: 40 
+  },
+  mainLabel: { 
+    fontSize: 24, 
+    fontWeight: "bold", 
+    marginTop: 10 
+  },
+  subLabel: { 
+    fontSize: 14, 
+    color: "#777" 
+  },
+  form: { 
+    marginVertical: 20 
+  },
+  label: { 
+    fontSize: 14, 
+    fontWeight: "600", 
+    marginBottom: 5, 
+    color: "#555" 
+  },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
@@ -295,8 +307,14 @@ const styles = StyleSheet.create({
     borderBottomColor: "#ff5a5f",
     marginBottom: 15,
   },
-  icon: { marginRight: 10 },
-  input: { flex: 1, paddingVertical: 10, color: "#000" },
+  icon: { 
+    marginRight: 10 
+  },
+  input: { 
+    flex: 1, 
+    paddingVertical: 10, 
+    color: "#000" 
+  },
   activateButton: {
     backgroundColor: "#ff5a5f",
     padding: 15,

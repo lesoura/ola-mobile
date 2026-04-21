@@ -4,14 +4,7 @@ import { getData } from "@/utils/storage";
 import axios from "axios";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
-} from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Row, Table } from "react-native-table-component";
 import Toast from "react-native-toast-message";
 
@@ -28,10 +21,7 @@ export default function LoanDetailsPage() {
 
     if (s.includes("calculation")) return 1;
     if (s.includes("payslip")) return 2;
-
-    // Submitted should go to Approval (step 3)
     if (s.includes("submitted")) return 3;
-
     if (s.includes("approval") || s.includes("approved")) return 4;
     if (s.includes("confirmation") || s.includes("confirmed")) return 5;
     if (s.includes("release") || s.includes("released")) return 6;
@@ -112,13 +102,13 @@ export default function LoanDetailsPage() {
       }).map(([label, value]) => [label, value])
     : [];
 
-    const cancelled = loan?.REMARKS === "Cancelled" || loan?.LOAN_STATUS?.toLowerCase() === "released";
+  const cancelled = loan?.REMARKS === "Cancelled" || loan?.LOAN_STATUS?.toLowerCase() === "released" || loan?.LOAN_STATUS?.toLowerCase() === "confirmed";
 
-    const disabledConfirm = loan?.REMARKS === "Cancelled" || loan?.LOAN_STATUS?.toLowerCase() === "confirmed" || loan?.LOAN_STATUS?.toLowerCase() === "released" || loan?.LOAN_STATUS?.toLowerCase() === "submitted";
+  const disabledConfirm = loan?.REMARKS === "Cancelled" || loan?.LOAN_STATUS?.toLowerCase() === "confirmed" || loan?.LOAN_STATUS?.toLowerCase() === "released" || loan?.LOAN_STATUS?.toLowerCase() === "submitted";
 
-    const handleCancel = () => {
-      setShowModal(true);
-    };
+  const handleCancel = () => {
+    setShowModal(true);
+  };
 
   const proceedCancel = async () => {
     const storedUser = await getData("user");
@@ -302,10 +292,28 @@ export default function LoanDetailsPage() {
 }
 
 const styles = StyleSheet.create({
-  container: { backgroundColor: "#f2f2f2", flexGrow: 1, paddingBottom: 50 },
-  topButtonRow: { flexDirection: "row", justifyContent: "space-between", marginHorizontal: 15, marginTop: 30 },
-  topButton: { backgroundColor: "#ff5a5f", paddingVertical: 10, paddingHorizontal: 20, borderRadius: 25 },
-  topButtonText: { color: "#fff", fontWeight: "bold", fontSize: 14 },
+  container: { 
+    backgroundColor: "#f2f2f2", 
+    flexGrow: 1, 
+    paddingBottom: 50 
+  },
+  topButtonRow: { 
+    flexDirection: "row", 
+    justifyContent: "space-between", 
+    marginHorizontal: 15, 
+    marginTop: 30 
+  },
+  topButton: { 
+    backgroundColor: "#ff5a5f", 
+    paddingVertical: 10, 
+    paddingHorizontal: 20, 
+    borderRadius: 25 
+  },
+  topButtonText: { 
+    color: "#fff", 
+    fontWeight: "bold", 
+    fontSize: 14 
+  },
   cardHeader: {
     margin: 15,
     backgroundColor: "#fff",
@@ -319,19 +327,89 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  cardTitle: { fontSize: 24, fontWeight: "bold", color: "#333", textAlign: "center", marginBottom: 10 },
-  cardSubtitle: { fontSize: 14, color: "#333", textAlign: "justify" },
-  formCard: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#ddd", padding: 20, marginHorizontal: 15, marginBottom: 5 },
-  tableHead: { height: 40, backgroundColor: "transparent", borderBottomWidth: 1, borderColor: "#ff5a5f" },
-  tableHeadText: { textAlign: "center", fontSize: 14, fontWeight: "bold", color: "#000" },
-  tableText: { textAlign: "center", fontSize: 14 },
-  progressCard: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#ddd", padding: 20, marginHorizontal: 15, marginBottom: 50 },
-  progressText: { textAlign: "center", fontSize: 14, fontWeight: "500", marginBottom: 10 },
-  progressContainer: { marginBottom: 5 },
-  progressBackground: { width: "100%", height: 10, backgroundColor: "#ddd", borderRadius: 5, overflow: "hidden" },
-  progressFill: { height: "100%", backgroundColor: "#ff9800" },
-  progressLabels: { flexDirection: "row", justifyContent: "space-between", marginTop: 8 },
-  progressLabel: { fontSize: 10, textAlign: "center", flex: 1 },
-  legendRow: { flexDirection: "row", justifyContent: "space-around", marginTop: 5 },
-  legend: { fontSize: 12, fontWeight: "500" },
+  cardTitle: { 
+    fontSize: 24, 
+    fontWeight: "bold", 
+    color: "#333", 
+    textAlign: "center", 
+    marginBottom: 10 
+  },
+  cardSubtitle: { 
+    fontSize: 14, 
+    color: "#333", 
+    textAlign: "justify" 
+  },
+  formCard: { 
+    backgroundColor: "#fff", 
+    borderRadius: 12, 
+    borderWidth: 1, 
+    borderColor: "#ddd", 
+    padding: 20, 
+    marginHorizontal: 15, 
+    marginBottom: 5 
+  },
+  tableHead: { 
+    height: 40, 
+    backgroundColor: "transparent", 
+    borderBottomWidth: 1, 
+    borderColor: "#ff5a5f" 
+  },
+  tableHeadText: { 
+    textAlign: "center", 
+    fontSize: 14, 
+    fontWeight: "bold", 
+    color: "#000" 
+  },
+  tableText: { 
+    textAlign: "center", 
+    fontSize: 14 
+  },
+  progressCard: { 
+    backgroundColor: "#fff", 
+    borderRadius: 12, 
+    borderWidth: 1, 
+    borderColor: "#ddd", 
+    padding: 20, 
+    marginHorizontal: 15, 
+    marginBottom: 50 
+  },
+  progressText: { 
+    textAlign: "center", 
+    fontSize: 14, 
+    fontWeight: "500", 
+    marginBottom: 10 
+  },
+  progressContainer: { 
+    marginBottom: 5 
+  },
+  progressBackground: { 
+    width: "100%", 
+    height: 10, 
+    backgroundColor: "#ddd", 
+    borderRadius: 5, 
+    overflow: "hidden" 
+  },
+  progressFill: { 
+    height: "100%", 
+    backgroundColor: "#ff9800" 
+  },
+  progressLabels: { 
+    flexDirection: "row", 
+    justifyContent: "space-between", 
+    marginTop: 8 
+  },
+  progressLabel: { 
+    fontSize: 10, 
+    textAlign: "center", 
+    flex: 1 
+  },
+  legendRow: { 
+    flexDirection: "row", 
+    justifyContent: "space-around", 
+    marginTop: 5 
+  },
+  legend: { 
+    fontSize: 12, 
+    fontWeight: "500" 
+  },
 });

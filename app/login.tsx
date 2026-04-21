@@ -1,48 +1,31 @@
 "use client";
+
 import { saveData } from "@/utils/storage";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import axios from "axios";
 import { encode as btoa } from "base-64";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  Dimensions,
-  Image,
-  Keyboard,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  useWindowDimensions,
-  View
-} from "react-native";
-import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming
-} from "react-native-reanimated";
+import { ActivityIndicator, Image, Keyboard, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from "react-native";
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import Svg, { Path } from "react-native-svg";
 import Toast from "react-native-toast-message";
 import MtmasIcon from "../assets/images/mtmas-icon.png";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 export default function Login() {
   const router = useRouter();
+  const { height, width } = useWindowDimensions();
+
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false); // <-- added
+  const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const { height: windowHeight } = useWindowDimensions(); // triggers on orientation / keyboard changes
-    const [keyboardHeight, setKeyboardHeight] = useState(0);
 
-    useEffect(() => {
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
     const showSub = Keyboard.addListener(
       Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
       (e) => setKeyboardHeight(e.endCoordinates.height)
@@ -68,7 +51,7 @@ export default function Login() {
       return;
     }
 
-    setLoading(true); // disable button
+    setLoading(true);
 
     try {
       const encodedUsername = btoa(username);
@@ -88,7 +71,6 @@ export default function Login() {
       const result = response.data?.[0];
 
       if (result?.RESPONSE_CODE === "M_0") {
-        // save user data
         await saveData("user", {
           firstname: result.FIRSTNAME,
           role: result.USER_ROLE,
@@ -99,7 +81,6 @@ export default function Login() {
           password: encodedPassword
         });
 
-        // call FTP reference endpoint
         try {
           const ftpResponse = await axios.post(
             `${API_URL}api/OLMS/Reference/FTP`,
@@ -116,8 +97,6 @@ export default function Login() {
             }
           );
 
-          console.log("FTP Reference Response:", ftpResponse.data);
-          // save FTP reference locally
           await saveData("ftpRef", ftpResponse.data[0]);
         } catch (ftpError) {
           console.error("FTP Reference call failed:", ftpError);
@@ -138,7 +117,7 @@ export default function Login() {
               ? "Account does not exist"
               : result?.RESPONSE_MESSAGE || "Invalid credentials",
         });
-        setLoading(false); // re-enable on fail
+        setLoading(false);
       }
     } catch (error) {
       console.error(error);
@@ -147,17 +126,20 @@ export default function Login() {
         text1: "Error",
         text2: "Unable to connect to the server.",
       });
-      setLoading(false); // re-enable on error
+      setLoading(false);
     }
   };
 
-  // animation setup
+  // animation
   const fadeAnim = useSharedValue(0);
   const slideAnim = useSharedValue(30);
 
   useEffect(() => {
     fadeAnim.value = withTiming(1, { duration: 800 });
-    slideAnim.value = withTiming(0, { duration: 800, easing: Easing.out(Easing.cubic) });
+    slideAnim.value = withTiming(0, {
+      duration: 800,
+      easing: Easing.out(Easing.cubic)
+    });
   }, []);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -166,35 +148,48 @@ export default function Login() {
   }));
 
   return (
-     <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-      >
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
       <ScrollView
         contentContainerStyle={{ flexGrow: 1 }}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       >
         <View style={styles.container}>
-          {/* Logo */}
-          <Animated.View style={[styles.imageContainer, animatedStyle]}>
+          {/* Top Section */}
+          <Animated.View
+            style={[
+              styles.imageContainer,
+              { height: height * 0.45 },
+              animatedStyle
+            ]}
+          >
             <Image source={MtmasIcon} style={styles.image} resizeMode="contain" />
+
             <View style={styles.ribbon} />
+
             <Svg
-              width={SCREEN_WIDTH}
-              height={50}
+              width={width}
+              height={60}
               style={{ position: "absolute", bottom: 0 }}
-              viewBox={`0 0 ${SCREEN_WIDTH} 50`}
+              viewBox={`0 0 ${width} 60`}
             >
               <Path
                 fill="#f2f2f2"
-                d={`M0 30 Q${SCREEN_WIDTH / 4} 10 ${SCREEN_WIDTH / 2} 30 T${SCREEN_WIDTH} 30 V50 H0 Z`}
+                d={`M0 40 Q${width / 4} 10 ${width / 2} 40 T${width} 40 V60 H0 Z`}
               />
             </Svg>
           </Animated.View>
 
           {/* Form */}
-          <Animated.View style={[styles.bottomFormContainer, animatedStyle]}>
+          <Animated.View
+            style={[
+              styles.bottomFormContainer,
+              animatedStyle
+            ]}
+          >
             <View>
               <Text style={styles.title}>Sign In</Text>
 
@@ -216,7 +211,7 @@ export default function Login() {
                 <TextInput
                   placeholder="Enter password"
                   placeholderTextColor="#999"
-                  secureTextEntry={!showPassword}  // <-- toggle here
+                  secureTextEntry={!showPassword}
                   style={styles.input}
                   value={password}
                   onChangeText={setPassword}
@@ -263,9 +258,18 @@ export default function Login() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff"},
-  imageContainer: { width: "100%", height: 450, overflow: "hidden" },
-  image: { width: "100%", height: "100%" },
+  container: { 
+    flex: 1, 
+    backgroundColor: "#fff" 
+  },
+  imageContainer: {
+    width: "100%",
+    overflow: "hidden",
+  },
+  image: {
+    width: "100%",
+    height: "100%",
+  },
   ribbon: {
     position: "absolute",
     top: -20,
@@ -277,14 +281,24 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   bottomFormContainer: {
+    flex: 1,
     backgroundColor: "#f2f2f2",
     justifyContent: "space-between",
     padding: 20,
     borderBottomRightRadius: 30,
     borderBottomLeftRadius: 30,
   },
-  title: { fontSize: 28, fontWeight: "bold", marginBottom: 20 },
-  label: { fontSize: 14, fontWeight: "600", marginBottom: 5, color: "#555" },
+  title: {
+    fontSize: 28,
+    fontWeight: "bold",
+    marginBottom: 20
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 5,
+    color: "#555"
+  },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
@@ -292,14 +306,19 @@ const styles = StyleSheet.create({
     borderBottomColor: "#ff5a5f",
     marginBottom: 10,
   },
-  icon: { marginRight: 10 },
+  icon: { 
+    marginRight: 10 
+  },
   input: {
     flex: 1,
     paddingVertical: 10,
     color: "#000",
-    backgroundColor: "transparent",
   },
-  forgot: { color: "#ff5a5f", textAlign: "right", marginBottom: 20 },
+  forgot: {
+    color: "#ff5a5f",
+    textAlign: "right",
+    marginBottom: 20
+  },
   loginButton: {
     backgroundColor: "#ff5a5f",
     padding: 15,
@@ -307,7 +326,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 20,
   },
-  loginButtonText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
-  signUpContainer: { flexDirection: "row", justifyContent: "center" },
-  signUpText: { color: "#ff5a5f", fontWeight: "bold" },
+  loginButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 16
+  },
+  signUpContainer: {
+    flexDirection: "row",
+    justifyContent: "center"
+  },
+  signUpText: {
+    color: "#ff5a5f",
+    fontWeight: "bold"
+  },
 });

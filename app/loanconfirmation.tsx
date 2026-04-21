@@ -2,19 +2,11 @@
 
 import { getData } from "@/utils/storage";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import axios from "axios";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import Toast from "react-native-toast-message";
 
 export default function LoanConfirmation() {
@@ -25,51 +17,118 @@ export default function LoanConfirmation() {
   const [selectedMethod, setSelectedMethod] = useState<"bank" | "cheque" | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const [appointmentDate, setAppointmentDate] = useState<Date>(new Date());
+  const [showPicker, setShowPicker] = useState(false);
+
+  const [proceedsOptions, setProceedsOptions] = useState<string[]>([]);
+  const [timeSlots, setTimeSlots] = useState<any[]>([]);
+  const [selectedSlot, setSelectedSlot] = useState<any | null>(null);
+
   const netProceedsValue =
-  selectedMethod === "bank"
-    ? "Bank Crediting"
-    : "Cheque";
+    selectedMethod === "bank"
+      ? "Bank Crediting"
+      : selectedMethod === "cheque"
+      ? "Cheque"
+      : null;
 
   useEffect(() => {
     sendOtp();
+    fetchLoanType();
   }, []);
 
+  // ================= OTP =================
   const sendOtp = async () => {
-  try {
-    const storedUser = await getData("user");
+    try {
+      const storedUser = await getData("user");
 
-    await axios.post(
-      `${API_URL}api/OLMS/User/Loan/Resubmission/Authentication`,
-      {
-        USERNAME: storedUser.username,
-        PASSWORD: "",
-        IPADDRESS: "",
-        DEVICEID: "1",
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${storedUser.token}`,
+      await axios.post(
+        `${API_URL}api/OLMS/User/Loan/Resubmission/Authentication`,
+        {
+          USERNAME: storedUser.username,
+          PASSWORD: "",
+          IPADDRESS: "",
+          DEVICEID: "1",
         },
-      }
-    );
+        {
+          headers: {
+            Authorization: `Bearer ${storedUser.token}`,
+          },
+        }
+      );
 
-    Toast.show({
-      type: "success",
-      text1: "OTP sent",
-    });
-  } catch (err) {
-    Toast.show({
-      type: "error",
-      text1: "Failed to send OTP",
-    });
-  }
-};
+      Toast.show({ type: "success", text1: "OTP sent" });
+    } catch {
+      Toast.show({ type: "error", text1: "Failed to send OTP" });
+    }
+  };
 
+  // ================= LoanType =================
+  const fetchLoanType = async () => {
+    try {
+      const storedUser = await getData("user");
+
+      const res = await axios.post(
+        `${API_URL}api/OLMS/Reference/LoanType`,
+        {
+          USERNAME: storedUser.username,
+          REFID: refid,
+          DEVICEID: "1",
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${storedUser.token}`,
+          },
+        }
+      );
+
+      const list = res.data?.Proceeds || [];
+      const mapped = list.map((x: any) => x.Description.toLowerCase());
+
+      setProceedsOptions(mapped);
+    } catch (err) {
+      console.log("LoanType error:", err);
+    }
+  };
+
+  // ================= Appointment Validation =================
+  const validateAppointment = async (date: Date) => {
+    try {
+      const storedUser = await getData("user");
+
+      const formatted = `${date.toISOString().split("T")[0]}T09:00:00`;
+
+      const res = await axios.post(
+        `${API_URL}api/OLMS/Appointment/Validation`,
+        {
+          AppointmentDate: formatted,
+          USERNAME: storedUser.username,
+          IpAddress: "1",
+          DEVICEID: "1",
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${storedUser.token}`,
+          },
+        }
+      );
+
+      setTimeSlots(res.data?.TimeReferences || []);
+      setSelectedSlot(null); // reset slot when date changes
+    } catch (err) {
+      console.log("Validation error:", err);
+    }
+  };
+
+  // ================= Confirm =================
   const handleConfirm = async () => {
-    if (!otp || !selectedMethod) {
+    if (
+      !otp ||
+      !selectedMethod ||
+      (selectedMethod === "cheque" && (!appointmentDate || !selectedSlot))
+    ) {
       Toast.show({
         type: "error",
-        text1: "OTP and method are required",
+        text1: "Complete all required fields",
       });
       return;
     }
@@ -78,9 +137,7 @@ export default function LoanConfirmation() {
       setLoading(true);
 
       const storedUser = await getData("user");
-      if (!storedUser) throw new Error("No user found");
 
-      // MAP UI → BACKEND DTO
       const body = {
         USERNAME: storedUser.username,
         IPADDRESS: "",
@@ -89,12 +146,14 @@ export default function LoanConfirmation() {
         REFID_LOAN: refid,
         OTP: otp,
 
-        // backend expects STAT (NOT disbursement method)
         STAT: "CON",
 
-        // optional fields (safe defaults since backend allows them)
-        APPT_DATE: "1900-01-01 00:00:00",
-        APPT_CODE: null,
+        APPT_DATE:
+          selectedMethod === "cheque"
+            ? `${appointmentDate.toISOString().split("T")[0]} 00:00:00`
+            : "1900-01-01 00:00:00",
+
+        APPT_CODE: selectedMethod === "cheque" ? selectedSlot?.Code : null,
         NETPROCEEDS: netProceedsValue,
       };
 
@@ -110,7 +169,6 @@ export default function LoanConfirmation() {
 
       const code = res?.data?.[0]?.RESPONSE_CODE;
 
-      // HANDLE BACKEND RESPONSES
       if (code?.startsWith("L_")) {
         Toast.show({ type: "success", text1: "Loan confirmed" });
         router.replace("/(tabs)");
@@ -118,35 +176,24 @@ export default function LoanConfirmation() {
       }
 
       if (code?.startsWith("S_")) {
-        Toast.show({
-          type: "error",
-          text1: "OTP issue (SMS)",
-        });
+        Toast.show({ type: "error", text1: "OTP issue" });
         return;
       }
 
       if (code?.startsWith("E_")) {
-        Toast.show({
-          type: "error",
-          text1: "OTP expired / invalid",
-        });
+        Toast.show({ type: "error", text1: "OTP expired / invalid" });
         return;
       }
 
-      Toast.show({
-        type: "error",
-        text1: "Unexpected response",
-      });
-    } catch (err) {
-      Toast.show({
-        type: "error",
-        text1: "Confirmation failed",
-      });
+      Toast.show({ type: "error", text1: "Unexpected response" });
+    } catch {
+      Toast.show({ type: "error", text1: "Confirmation failed" });
     } finally {
       setLoading(false);
     }
   };
 
+  // ================= UI =================
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
@@ -173,10 +220,9 @@ export default function LoanConfirmation() {
             {/* OTP */}
             <Text style={styles.label}>OTP</Text>
             <View style={styles.inputWrapper}>
-              <MaterialIcons name="sms" size={20} color="#ff5a5f" style={styles.icon} />
+              <MaterialIcons name="sms" size={20} color="#ff5a5f" />
               <TextInput
                 placeholder="Enter OTP"
-                placeholderTextColor="#999"
                 style={styles.input}
                 value={otp}
                 onChangeText={setOtp}
@@ -184,54 +230,128 @@ export default function LoanConfirmation() {
               />
             </View>
 
-            {/* METHOD (UI ONLY - NOT SENT TO API) */}
+            {/* METHODS */}
             <Text style={[styles.label, { marginTop: 20 }]}>
               Disbursement Method
             </Text>
 
-            <TouchableOpacity
-              style={[
-                styles.optionCard,
-                selectedMethod === "bank" && styles.optionCardActive,
-              ]}
-              onPress={() => setSelectedMethod("bank")}
-            >
-              <MaterialIcons
-                name="account-balance"
-                size={24}
-                color={selectedMethod === "bank" ? "#fff" : "#ff5a5f"}
-              />
-              <Text
+            {proceedsOptions.includes("bank") && (
+              <TouchableOpacity
                 style={[
-                  styles.optionText,
-                  selectedMethod === "bank" && { color: "#fff" },
+                  styles.optionCard,
+                  selectedMethod === "bank" && styles.optionCardActive,
                 ]}
+                onPress={() => {
+                  setSelectedMethod("bank");
+                  setTimeSlots([]);
+                }}
               >
-                Bank Crediting
-              </Text>
-            </TouchableOpacity>
+                <MaterialIcons
+                  name="account-balance"
+                  size={24}
+                  color={selectedMethod === "bank" ? "#fff" : "#ff5a5f"}
+                />
+                <Text
+                  style={[
+                    styles.optionText,
+                    { color: selectedMethod === "bank" ? "#fff" : "#ff5a5f" },
+                  ]}
+                >
+                  Bank Crediting
+                </Text>
+              </TouchableOpacity>
+            )}
 
-            <TouchableOpacity
-              style={[
-                styles.optionCard,
-                selectedMethod === "cheque" && styles.optionCardActive,
-              ]}
-              onPress={() => setSelectedMethod("cheque")}
-            >
-              <MaterialIcons
-                name="receipt-long"
-                size={24}
-                color={selectedMethod === "cheque" ? "#fff" : "#ff5a5f"}
-              />
-              <Text
+            {proceedsOptions.includes("cheque") && (
+              <TouchableOpacity
                 style={[
-                  styles.optionText,
-                  selectedMethod === "cheque" && { color: "#fff" },
+                  styles.optionCard,
+                  selectedMethod === "cheque" && styles.optionCardActive,
                 ]}
+                onPress={() => setSelectedMethod("cheque")}
               >
-                Cheque Disbursement
-              </Text>
-            </TouchableOpacity>
+                <MaterialIcons
+                  name="receipt-long"
+                  size={24}
+                  color={selectedMethod === "cheque" ? "#fff" : "#ff5a5f"}
+                />
+                <Text
+                  style={[
+                    styles.optionText,
+                    { color: selectedMethod === "cheque" ? "#fff" : "#ff5a5f" },
+                  ]}
+                >
+                  Cheque
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {/* DATE */}
+            {selectedMethod === "cheque" && (
+              <>
+                <Text style={[styles.label, { marginTop: 20 }]}>
+                  Appointment Date
+                </Text>
+
+                <TouchableOpacity
+                  onPress={() => setShowPicker(true)}
+                  style={styles.inputWrapper}
+                >
+                  <MaterialIcons name="calendar-today" size={20} color="#ff5a5f" />
+                  <Text>
+                    {appointmentDate.toISOString().split("T")[0]}
+                  </Text>
+                </TouchableOpacity>
+
+                {showPicker && (
+                  <DateTimePicker
+                    value={appointmentDate}
+                    mode="date"
+                    minimumDate={new Date()}
+                    onChange={async (event, date) => {
+                      setShowPicker(false);
+                      if (date) {
+                        setAppointmentDate(date);
+                        await validateAppointment(date);
+                      }
+                    }}
+                  />
+                )}
+
+                {/* TIME SLOTS */}
+                {timeSlots.length > 0 && (
+                  <>
+                    <Text style={[styles.label, { marginTop: 20 }]}>
+                      Time Slots
+                    </Text>
+
+                    {timeSlots.map((slot) => (
+                      <TouchableOpacity
+                        key={slot.Code}
+                        style={[
+                          styles.optionCard,
+                          selectedSlot?.Code === slot.Code &&
+                            styles.optionCardActive,
+                        ]}
+                        onPress={() => setSelectedSlot(slot)}
+                      >
+                        <Text
+                          style={[
+                            styles.optionText,
+                            {
+                              color:
+                                selectedSlot?.Code === slot.Code ? "#fff" : "#ff5a5f",
+                            },
+                          ]}
+                        >
+                          {slot.TimeSchedule}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </>
+                )}
+              </>
+            )}
           </View>
 
           <TouchableOpacity
@@ -249,26 +369,37 @@ export default function LoanConfirmation() {
   );
 }
 
+// ================= STYLES =================
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff", padding: 25 },
-
+  container: {
+    flex: 1,
+    backgroundColor: "#fff",
+    padding: 25
+  },
   headerContainer: {
     alignItems: "center",
     marginTop: 60,
     marginBottom: 40,
   },
-  mainLabel: { fontSize: 24, fontWeight: "bold", marginTop: 10 },
-  subLabel: { fontSize: 14, color: "#777", textAlign: "center" },
-
-  form: { marginVertical: 20 },
-
+  mainLabel: { 
+    fontSize: 24, 
+    fontWeight: "bold", 
+    marginTop: 10 
+  },
+  subLabel: { 
+    fontSize: 14, 
+    color: "#777", 
+    textAlign: "center" 
+  },
+  form: { 
+    marginVertical: 20 
+  },
   label: {
     fontSize: 14,
     fontWeight: "600",
     marginBottom: 5,
     color: "#555",
   },
-
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
@@ -276,9 +407,10 @@ const styles = StyleSheet.create({
     borderBottomColor: "#ff5a5f",
     marginBottom: 15,
   },
-  icon: { marginRight: 10 },
-  input: { flex: 1, paddingVertical: 10, color: "#000" },
-
+  input: { 
+    flex: 1, 
+    paddingVertical: 10 
+  },
   optionCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -297,23 +429,19 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#ff5a5f",
   },
-
   confirmButton: {
     backgroundColor: "#ff5a5f",
     padding: 15,
     borderRadius: 25,
     alignItems: "center",
-    marginTop: 10,
   },
   confirmButtonText: {
     color: "#fff",
     fontWeight: "bold",
     fontSize: 16,
   },
-
   topBackButton: {
     marginTop: 10,
-    marginLeft: -10,
   },
   topBackText: {
     color: "#ff5a5f",
