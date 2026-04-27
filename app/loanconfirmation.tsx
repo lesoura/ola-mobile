@@ -3,15 +3,28 @@
 import { getData } from "@/utils/storage";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { Picker } from "@react-native-picker/picker";
 import axios from "axios";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import Toast from "react-native-toast-message";
 
 export default function LoanConfirmation() {
   const router = useRouter();
   const { refid } = useLocalSearchParams<{ refid: string }>();
+
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [terms, setTerms] = useState([false, false, false]);
 
   const [otp, setOtp] = useState("");
   const [selectedMethod, setSelectedMethod] = useState<"bank" | "cheque" | null>(null);
@@ -32,7 +45,6 @@ export default function LoanConfirmation() {
       : null;
 
   useEffect(() => {
-    sendOtp();
     fetchLoanType();
   }, []);
 
@@ -113,7 +125,7 @@ export default function LoanConfirmation() {
       );
 
       setTimeSlots(res.data?.TimeReferences || []);
-      setSelectedSlot(null); // reset slot when date changes
+      setSelectedSlot(null);
     } catch (err) {
       console.log("Validation error:", err);
     }
@@ -142,17 +154,13 @@ export default function LoanConfirmation() {
         USERNAME: storedUser.username,
         IPADDRESS: "",
         DEVICEID: "1",
-
         REFID_LOAN: refid,
         OTP: otp,
-
         STAT: "CON",
-
         APPT_DATE:
           selectedMethod === "cheque"
             ? `${appointmentDate.toISOString().split("T")[0]} 00:00:00`
             : "1900-01-01 00:00:00",
-
         APPT_CODE: selectedMethod === "cheque" ? selectedSlot?.Code : null,
         NETPROCEEDS: netProceedsValue,
       };
@@ -193,6 +201,16 @@ export default function LoanConfirmation() {
     }
   };
 
+  // ================= OTP VISIBILITY LOGIC =================
+  const showOtp =
+    selectedMethod === "bank" ||
+    (selectedMethod === "cheque" && selectedSlot);
+
+  const isValid =
+    otp &&
+    selectedMethod &&
+    (selectedMethod !== "cheque" || (appointmentDate && selectedSlot));
+
   // ================= UI =================
   return (
     <KeyboardAvoidingView
@@ -212,28 +230,13 @@ export default function LoanConfirmation() {
             <Ionicons name="document-text-outline" size={70} color="#ff5a5f" />
             <Text style={styles.mainLabel}>Loan Confirmation</Text>
             <Text style={styles.subLabel}>
-              Enter OTP and confirm transaction
+              Select method and complete transaction
             </Text>
           </View>
 
           <View style={styles.form}>
-            {/* OTP */}
-            <Text style={styles.label}>OTP</Text>
-            <View style={styles.inputWrapper}>
-              <MaterialIcons name="sms" size={20} color="#ff5a5f" />
-              <TextInput
-                placeholder="Enter OTP"
-                style={styles.input}
-                value={otp}
-                onChangeText={setOtp}
-                keyboardType="number-pad"
-              />
-            </View>
-
             {/* METHODS */}
-            <Text style={[styles.label, { marginTop: 20 }]}>
-              Disbursement Method
-            </Text>
+            <Text style={styles.label}>Disbursement Method</Text>
 
             {proceedsOptions.includes("bank") && (
               <TouchableOpacity
@@ -244,6 +247,7 @@ export default function LoanConfirmation() {
                 onPress={() => {
                   setSelectedMethod("bank");
                   setTimeSlots([]);
+                  setSelectedSlot(null);
                 }}
               >
                 <MaterialIcons
@@ -286,7 +290,7 @@ export default function LoanConfirmation() {
               </TouchableOpacity>
             )}
 
-            {/* DATE */}
+            {/* CHEQUE FLOW */}
             {selectedMethod === "cheque" && (
               <>
                 <Text style={[styles.label, { marginTop: 20 }]}>
@@ -298,9 +302,7 @@ export default function LoanConfirmation() {
                   style={styles.inputWrapper}
                 >
                   <MaterialIcons name="calendar-today" size={20} color="#ff5a5f" />
-                  <Text>
-                    {appointmentDate.toISOString().split("T")[0]}
-                  </Text>
+                  <Text>{appointmentDate.toISOString().split("T")[0]}</Text>
                 </TouchableOpacity>
 
                 {showPicker && (
@@ -318,52 +320,176 @@ export default function LoanConfirmation() {
                   />
                 )}
 
-                {/* TIME SLOTS */}
                 {timeSlots.length > 0 && (
                   <>
                     <Text style={[styles.label, { marginTop: 20 }]}>
                       Time Slots
                     </Text>
-
-                    {timeSlots.map((slot) => (
-                      <TouchableOpacity
-                        key={slot.Code}
-                        style={[
-                          styles.optionCard,
-                          selectedSlot?.Code === slot.Code &&
-                            styles.optionCardActive,
-                        ]}
-                        onPress={() => setSelectedSlot(slot)}
+                    <View style={styles.pickerWrapper}>
+                      <Picker
+                        selectedValue={selectedSlot?.Code}
+                        onValueChange={(value) => {
+                          const slot = timeSlots.find((s) => s.Code === value);
+                          setSelectedSlot(slot || null);
+                        }}
                       >
-                        <Text
-                          style={[
-                            styles.optionText,
-                            {
-                              color:
-                                selectedSlot?.Code === slot.Code ? "#fff" : "#ff5a5f",
-                            },
-                          ]}
-                        >
-                          {slot.TimeSchedule}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
+                        <Picker.Item label="Select a time slot" value={null} />
+                        {timeSlots.map((slot) => (
+                          <Picker.Item
+                            key={slot.Code}
+                            label={slot.TimeSchedule}
+                            value={slot.Code}
+                          />
+                        ))}
+                      </Picker>
+                    </View>
                   </>
                 )}
-              </>
+                  </>
+                )}
+
+            {/* OTP (BOTTOM) */}
+            {showOtp && (
+              <View style={{ marginTop: 30 }}>
+                <Text style={styles.label}>OTP</Text>
+
+                <View style={styles.inputWrapper}>
+                  <MaterialIcons name="sms" size={20} color="#ff5a5f" />
+                  <TextInput
+                    placeholder="Enter OTP"
+                    style={styles.input}
+                    value={otp}
+                    onChangeText={setOtp}
+                    keyboardType="number-pad"
+                  />
+                </View>
+
+                <TouchableOpacity onPress={sendOtp} style={styles.sendOtpButton}>
+                  <Text style={styles.sendOtpText}>Send OTP</Text>
+                </TouchableOpacity>
+              </View>
             )}
           </View>
 
+          {/* CONFIRM */}
           <TouchableOpacity
-            style={[styles.confirmButton, loading && { opacity: 0.6 }]}
-            onPress={handleConfirm}
-            disabled={loading}
+            style={[
+              styles.confirmButton,
+              (!isValid || loading) && { opacity: 0.5 },
+            ]}
+            onPress={() => setShowTermsModal(true)}
+            disabled={!isValid || loading}
           >
             <Text style={styles.confirmButtonText}>
               {loading ? "Processing..." : "Confirm Loan"}
             </Text>
           </TouchableOpacity>
         </View>
+        {showTermsModal && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+
+            <Text style={styles.modalTitle}>Terms & Conditions</Text>
+
+            {/* 3 CHECKBOXES */}
+            <Text style={styles.modalDesc}>
+              By checking the items below, you are declaring that you have received through your e-mail and examined carefully the following documents:
+            </Text>
+
+            {/* CHECKBOX 1 */}
+            <TouchableOpacity
+              style={styles.checkboxRow}
+              onPress={() => {
+                const updated = [...terms];
+                updated[0] = !updated[0];
+                setTerms(updated);
+              }}
+            >
+              <View style={[styles.checkbox, terms[0] && styles.checkboxActive]} />
+              <View style={{ flex: 1 }}>
+              <Text style={styles.checkboxLabel}>
+                Amortization Schedule, Authority to Deduct, Promissory Note, and Disclosure Statement on Loan/Credit Transaction
+              </Text>
+              </View>
+            </TouchableOpacity>
+
+            <Text style={styles.helperText}>Tick the box if files received</Text>
+
+            {/* CHECKBOX 2 */}
+            <TouchableOpacity
+              style={styles.checkboxRow}
+              onPress={() => {
+                const updated = [...terms];
+                updated[1] = !updated[1];
+                setTerms(updated);
+              }}
+            >
+              <View style={[styles.checkbox, terms[1] && styles.checkboxActive]} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.checkboxLabel}>
+                  I understand that checking this box constitutes an electronic signature confirming and approving that I agree and accept the terms and conditions as stated. Further, this constitutes my consent to electronically sign the loan application, ATD, PN, and DS. The copies of electronically and digitally signed documents will be submitted in to my e-mail address upon completion of loan confirmation.
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            <Text style={styles.helperText}>Tick the box if you agree</Text>
+
+            {/* CHECKBOX 3 */}
+            <TouchableOpacity
+              style={styles.checkboxRow}
+              onPress={() => {
+                const updated = [...terms];
+                updated[2] = !updated[2];
+                setTerms(updated);
+              }}
+            >
+              <View style={[styles.checkbox, terms[2] && styles.checkboxActive]} />
+              <View style={{ flex: 1 }}>
+              <Text style={styles.checkboxLabel}>
+                I hereby agree to be governed by the Terms and Conditions of the Manila Teachers' Online Loan Management System agreement and certify that the above supplied information are true and correct. I hereby also acknowledge to have read and fully understood the said Terms and Conditions.
+              </Text></View>
+            </TouchableOpacity>
+
+            <Text style={styles.helperText}>Tick the box if you agree</Text>
+
+            {/* BUTTONS */}
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.modalCancel}
+                onPress={() => {
+                  setShowTermsModal(false);
+                  setTerms([false, false, false]); // 👈 reset
+                }}
+              >
+                <Text style={{ color: "#fff" }}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalConfirm}
+                onPress={() => {
+                  const allChecked = terms.every(Boolean);
+
+                  if (!allChecked) {
+                    Toast.show({
+                      type: "error",
+                      text1: "Please accept all terms",
+                    });
+                    return;
+                  }
+
+                  setShowTermsModal(false);
+                  handleConfirm();
+                }}
+              >
+                <Text style={{ color: "#fff", fontWeight: "600" }}>
+                  Confirm
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+          </View>
+        </View>
+      )}
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -374,25 +500,25 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#fff",
-    padding: 25
+    padding: 25,
   },
   headerContainer: {
     alignItems: "center",
     marginTop: 60,
     marginBottom: 40,
   },
-  mainLabel: { 
-    fontSize: 24, 
-    fontWeight: "bold", 
-    marginTop: 10 
+  mainLabel: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginTop: 10,
   },
-  subLabel: { 
-    fontSize: 14, 
-    color: "#777", 
-    textAlign: "center" 
+  subLabel: {
+    fontSize: 14,
+    color: "#777",
+    textAlign: "center",
   },
-  form: { 
-    marginVertical: 20 
+  form: {
+    marginVertical: 20,
   },
   label: {
     fontSize: 14,
@@ -407,9 +533,9 @@ const styles = StyleSheet.create({
     borderBottomColor: "#ff5a5f",
     marginBottom: 15,
   },
-  input: { 
-    flex: 1, 
-    paddingVertical: 10 
+  input: {
+    flex: 1,
+    paddingVertical: 10,
   },
   optionCard: {
     flexDirection: "row",
@@ -429,6 +555,13 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#ff5a5f",
   },
+  sendOtpButton: {
+    alignSelf: "flex-start",
+  },
+  sendOtpText: {
+    color: "#ff5a5f",
+    fontWeight: "600",
+  },
   confirmButton: {
     backgroundColor: "#ff5a5f",
     padding: 15,
@@ -447,5 +580,91 @@ const styles = StyleSheet.create({
     color: "#ff5a5f",
     fontWeight: "bold",
     fontSize: 16,
+  },
+  pickerWrapper: {
+    borderWidth: 1,
+    borderColor: "#ff5a5f",
+    borderRadius: 10,
+    marginBottom: 0,
+  },
+  modalOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalBox: {
+    width: "85%",
+    backgroundColor: "#fff",
+    borderRadius: 15,
+    padding: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 15,
+    textAlign: "center",
+  },
+  checkboxRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 12,
+    width: "100%", 
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderWidth: 2,
+    borderColor: "#ff5a5f",
+    marginRight: 10,
+    borderRadius: 4,
+    marginTop: 3, 
+  },
+  checkboxActive: {
+    backgroundColor: "#ff5a5f",
+  },
+  checkboxLabel: {
+    fontSize: 13,
+    color: "#333",
+    textAlign: "justify",
+    flexShrink: 1,
+  },
+  modalButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 20,
+  },
+  modalCancel: {
+    flex: 1,
+    backgroundColor: "#aaa",
+    padding: 10,
+    borderRadius: 10,
+    marginRight: 5,
+    alignItems: "center",
+  },
+  modalConfirm: {
+    flex: 1,
+    backgroundColor: "#ff5a5f",
+    padding: 10,
+    borderRadius: 10,
+    marginLeft: 5,
+    alignItems: "center",
+  },
+  modalDesc: {
+    fontSize: 13,
+    fontWeight: "600",
+    marginBottom: 10,
+    color: "#000",
+    textAlign: "justify",
+  },
+  helperText: {
+    fontSize: 10,
+    color: "#b94a48",
+    marginBottom: 8,
+    textAlign: "justify",
   },
 });

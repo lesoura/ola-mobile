@@ -139,6 +139,7 @@ export default function LoanDetailsPage() {
       console.error("Cancel loan error:", err);
       Toast.show({ type: "error", text1: "Failed to cancel loan" });
     }
+    
   };
 
   return (
